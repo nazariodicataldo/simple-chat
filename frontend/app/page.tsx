@@ -1,19 +1,36 @@
-import { Button } from "@/components/ui/button"
+"use client"
+
+import { Chat } from "@/components/chat/chat"
+import { ChatForm } from "@/components/chat/chat-form"
+
+import { useMessagesQuery } from "./features/messages/message.queries"
 
 export default function Page() {
+  const { data: messages = [], isError, isPending, refetch } = useMessagesQuery()
+
   return (
-    <div className="flex min-h-svh p-6">
-      <div className="flex max-w-md min-w-0 flex-col gap-4 text-sm leading-loose">
-        <div>
-          <h1 className="font-medium">Project ready!</h1>
-          <p>You may now add components and start building.</p>
-          <p>We&apos;ve already added the button component for you.</p>
-          <Button className="mt-2">Button</Button>
+    <main className="flex min-h-svh justify-center bg-muted/40 p-4 sm:p-8">
+      <section
+        aria-labelledby="chat-title"
+        className="flex h-[min(44rem,calc(100svh-2rem))] w-full max-w-3xl flex-col rounded-xl border bg-card shadow-sm sm:h-[min(44rem,calc(100svh-4rem))]"
+      >
+        <header className="border-b px-5 py-4">
+          <h1 id="chat-title" className="text-lg font-semibold">
+            Group chat
+          </h1>
+          <p className="text-sm text-muted-foreground">Messages</p>
+        </header>
+
+        <div className="min-h-0 flex-1">
+          <Chat
+            isError={isError}
+            isPending={isPending}
+            messages={messages}
+            onRetry={() => refetch()}
+          />
         </div>
-        <div className="font-mono text-xs text-muted-foreground">
-          (Press <kbd>d</kbd> to toggle dark mode)
-        </div>
-      </div>
-    </div>
+        <ChatForm />
+      </section>
+    </main>
   )
 }
