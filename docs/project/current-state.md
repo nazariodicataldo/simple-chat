@@ -1,9 +1,9 @@
 # Stato corrente
 
 - **Milestone corrente:** Milestone 1 — Chat HTTP autenticata
-- **Ultimo task completato:** M1-007 — Correggere il contratto di paginazione e autore Message.
+- **Ultimo task completato:** M1-008 — Autenticazione Sanctum per SPA.
 - **Task attivo:** nessuno.
-- **Prossimo task suggerito:** M1-008 — Autenticazione Sanctum per SPA.
+- **Prossimo task suggerito:** definire il task frontend per autenticazione SPA e integrazione cookie/CSRF.
 - **Ultimo aggiornamento:** 2026-08-10.
 
 ## Funzionalita' esistenti
@@ -12,13 +12,15 @@
 - Skeleton Next.js rilevato in `frontend/` (Next `16.2.6`, TypeScript).
 - Il frontend Next.js implementa la chat HTTP su `/`: TanStack Query, Axios configurato con `NEXT_PUBLIC_BACKEND_URL`, CRUD messages riusabile, stati loading/error/empty, invio con React Hook Form e Zod, avatar DiceBear e componenti shadcn Message/MessageScroller/Skeleton.
 - M1-003 ha introdotto il dominio utente con `first_name`, `last_name`, `username` e `UserResource` camelCase; password e dati sensibili non sono inclusi nella Resource.
-- M1-004 ha introdotto il dominio Message con soft-delete, CRUD HTTP provvisorio, Resource camelCase, policy di proprietà e test. La creazione usa temporaneamente `user_id = 1` finché non esisterà auth; migration e smoke test Postman sono verificati sul database PostgreSQL locale Lerd.
+- M1-004 ha introdotto il dominio Message con soft-delete, CRUD HTTP, Resource camelCase, policy di proprietà e test; M1-008 associa ora la creazione all'utente autenticato. Migration e smoke test Postman sono verificati sul database PostgreSQL locale Lerd.
 - M1-006/M1-007 standardizzano le risposte riuscite del CRUD Message con `success`, `data`, `timestamp`, `message` e `code`; `DELETE` conserva `204 No Content`. `GET /api/messages` restituisce 20 record in ordine cronologico con cursor pagination e autore pubblico eager-loaded, senza email.
-- Lerd configura PostgreSQL, Redis e Mailpit locali. Non sono ancora implementati/documentati chat completa, auth, Sanctum, Reverb, queue, Docker o CI.
+- M1-008 ha implementato Sanctum 4.3.3 per SPA cookie/CSRF, CORS con credenziali per `http://localhost:3000`, endpoint register/login/logout/user con risposte riuscite `ApiResponse` e protezione `auth:sanctum` per Message. La verifica backend con test, PHPStan, Pint e Postman è riuscita.
+- Lerd configura PostgreSQL, Redis e Mailpit locali. Non sono ancora implementati/documentati chat completa, Reverb, queue, Docker o CI.
 
 ## Test esistenti
 
 - Backend: Pest verificato localmente con `composer test`: 13 test superati, 87 assertion (M1-007, 2026-08-10).
+- Backend, M1-008: `composer test` verificato localmente con PHP 8.5 Lerd (20 test, 140 assertion); PHPStan con `--memory-limit=512M` riuscito (34/34, nessun errore). Smoke test Postman per Sanctum cookie/CSRF riuscito.
 - Frontend: Vitest configurato con jsdom e React Testing Library; M1-005 verifica chat e schema Zod con 6 test.
 - Frontend: lint e typecheck verificati con Node `v24.19.0` e pnpm `11.20.0`; lint segnala un warning ESLint esistente ma nessun errore. Build Next.js `16.2.6` verificata localmente dallo sviluppatore: compilazione, TypeScript e generazione delle pagine statiche riusciti.
 - Backend, M1-003: suite Pest (3 test, 10 assertion), Pint completo (28 file) e PHPStan con `--memory-limit=512M` verificati localmente dallo sviluppatore.
@@ -31,6 +33,7 @@
 - Il sandbox non espone `composer`; per M1-003 i controlli backend non erano avviabili (exit 127).
 - PHPStan richiede il limite CLI `--memory-limit=512M` nell’ambiente locale dello sviluppatore.
 - Nel sandbox corrente PHP è `8.3.6`, mentre le dipendenze installate richiedono PHP `>= 8.4.1`; PHPStan non può quindi avviarsi. `composer` non è installato nel PATH del sandbox, perciò Pest non può essere eseguito qui.
+- M1-008: Lerd non è avviabile nel sandbox perché non può raggiungere il D-Bus della sessione dello sviluppatore. Le verifiche locali di Pest e PHPStan e Pint completo nel sandbox sono riusciti. Lo smoke browser è rinviato al prossimo task frontend per decisione esplicita.
 
 ## Decisioni aperte
 
@@ -46,3 +49,4 @@
 - M1-005, 2026-08-09: verifica locale dello sviluppatore riuscita per `pnpm test` (6 test), `pnpm typecheck`, `pnpm lint` e `pnpm build`; smoke test della chat integrata con API Laravel riuscito. `git diff --check` riuscito nel sandbox.
 - M1-006, 2026-08-10: `composer test` riuscito (13 test, 61 assertion); PHPStan con `--memory-limit=512M` riuscito (0 errori); Pint sui file modificati riuscito. Pint completo segnala soltanto `database/seeders/DatabaseSeeder.php`, file preesistente fuori scope.
 - M1-007, 2026-08-10: `composer test` riuscito (13 test, 87 assertion); PHPStan con `--memory-limit=512M` riuscito (0 errori); Pint sui file modificati riuscito. Pint completo segnala soltanto `database/seeders/DatabaseSeeder.php`, file preesistente fuori scope.
+- M1-008, 2026-08-10: verifica locale PHP 8.5 Lerd riuscita per `composer test` (20 test, 140 assertion) e PHPStan (34/34, nessun errore); Pint completo riuscito nel sandbox; smoke Postman Sanctum cookie/CSRF riuscito. Smoke browser rinviato al prossimo task frontend per decisione esplicita.

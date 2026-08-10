@@ -34,7 +34,7 @@ class MessageController extends Controller
     {
         $message = Message::create([
             'text' => $request->validated('text'),
-            'user_id' => 1,
+            'user_id' => $request->user()->id,
         ]);
 
         return self::apiResponse(
@@ -60,6 +60,8 @@ class MessageController extends Controller
      */
     public function update(MessageRequest $request, Message $message): JsonResponse
     {
+        $this->authorize('update', $message);
+
         $message->update($request->validated());
 
         return self::apiResponse(
@@ -73,6 +75,8 @@ class MessageController extends Controller
      */
     public function destroy(Message $message): Response
     {
+        $this->authorize('delete', $message);
+
         $message->delete();
 
         return response()->noContent();

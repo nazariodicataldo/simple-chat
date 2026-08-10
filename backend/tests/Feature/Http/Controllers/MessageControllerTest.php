@@ -6,44 +6,44 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 
 uses(RefreshDatabase::class);
 
-it('creates a message for the placeholder user and ignores a client user id', function () {
-    User::factory()->create(['id' => 1]);
+it('creates a message for the authenticated user and ignores a client user id', function () {
+    $user = User::factory()->create();
     $otherUser = User::factory()->create();
 
-    $response = $this->postJson('/api/messages', [
+    $response = $this->actingAs($user, 'sanctum')->postJson('/api/messages', [
         'text' => 'Hello, group!',
         'user_id' => $otherUser->id,
     ]);
 
     $response->assertCreated()
         ->assertJsonPath('success', true)
-        ->assertJsonPath('data.userId', 1)
+        ->assertJsonPath('data.userId', $user->id)
         ->assertJsonPath('data.text', 'Hello, group!')
         ->assertJsonPath('message', null)
         ->assertJsonPath('code', 201)
         ->assertJsonStructure(['timestamp']);
 
     $this->assertDatabaseHas('messages', [
-        'user_id' => 1,
+        'user_id' => $user->id,
         'text' => 'Hello, group!',
     ]);
 });
 
 it('validates message text when creating and updating', function () {
-    User::factory()->create(['id' => 1]);
-    $message = Message::factory()->create();
+    $user = User::factory()->create();
+    $message = Message::factory()->for($user)->create();
 
-    $this->postJson('/api/messages', ['text' => str_repeat('a', 301)])
+    $this->actingAs($user, 'sanctum')->postJson('/api/messages', ['text' => str_repeat('a', 301)])
         ->assertUnprocessable()
         ->assertJsonValidationErrors('text');
 
-    $this->putJson("/api/messages/{$message->id}", ['text' => ''])
+    $this->actingAs($user, 'sanctum')->putJson("/api/messages/{$message->id}", ['text' => ''])
         ->assertUnprocessable()
         ->assertJsonValidationErrors('text');
 });
 
 it('returns cursor-paginated messages in chronological order with public authors', function () {
-    User::factory()->create(['id' => 1]);
+    $user = User::factory()->create();
     $olderAuthor = User::factory()->create([
         'first_name' => 'Ada',
         'last_name' => 'Lovelace',
@@ -57,7 +57,7 @@ it('returns cursor-paginated messages in chronological order with public authors
     $olderMessages = Message::factory()->count(10)->for($olderAuthor)->create();
     $newerMessages = Message::factory()->count(11)->for($newerAuthor)->create();
 
-    $response = $this->getJson('/api/messages')
+    $response = $this->actingAs($user, 'sanctum')->getJson('/api/messages')
         ->assertOk()
         ->assertJsonStructure([
             'success',
@@ -91,7 +91,7 @@ it('returns cursor-paginated messages in chronological order with public authors
 
     expect($nextCursor)->toBeString()->not->toBeEmpty();
 
-    $nextResponse = $this->getJson('/api/messages?cursor='.$nextCursor)
+    $nextResponse = $this->actingAs($user, 'sanctum')->getJson('/api/messages?cursor='.$nextCursor)
         ->assertOk()
         ->assertJsonCount(1, 'data')
         ->assertJsonPath('data.0.id', $newerMessages->last()->id)
@@ -101,17 +101,17 @@ it('returns cursor-paginated messages in chronological order with public authors
 
     expect($previousCursor)->toBeString()->not->toBeEmpty();
 
-    $this->getJson('/api/messages?cursor='.$previousCursor)
+    $this->actingAs($user, 'sanctum')->getJson('/api/messages?cursor='.$previousCursor)
         ->assertOk()
         ->assertJsonCount(20, 'data')
         ->assertJsonPath('data.0.id', $olderMessages->first()->id);
 });
 
-it('wraps show and update responses while keeping destroy empty', function () {
-    User::factory()->create(['id' => 1]);
-    $message = Message::factory()->create(['text' => 'Original text']);
+it('allows the owner to view, update, and delete a message', function () {
+    $user = User::factory()->create();
+    $message = Message::factory()->for($user)->create(['text' => 'Original text']);
 
-    $this->getJson("/api/messages/{$message->id}")
+    $this->actingAs($user, 'sanctum')->getJson("/api/messages/{$message->id}")
         ->assertOk()
         ->assertJsonPath('success', true)
         ->assertJsonPath('data.text', 'Original text')
@@ -119,7 +119,7 @@ it('wraps show and update responses while keeping destroy empty', function () {
         ->assertJsonPath('code', 200)
         ->assertJsonStructure(['timestamp']);
 
-    $this->putJson("/api/messages/{$message->id}", ['text' => 'Edited text'])
+    $this->actingAs($user, 'sanctum')->putJson("/api/messages/{$message->id}", ['text' => 'Edited text'])
         ->assertOk()
         ->assertJsonPath('success', true)
         ->assertJsonPath('data.text', 'Edited text')
@@ -127,8 +127,20 @@ it('wraps show and update responses while keeping destroy empty', function () {
         ->assertJsonPath('code', 200)
         ->assertJsonStructure(['timestamp']);
 
-    $this->deleteJson("/api/messages/{$message->id}")
+    $this->actingAs($user, 'sanctum')->deleteJson("/api/messages/{$message->id}")
         ->assertNoContent();
 
     $this->assertSoftDeleted('messages', ['id' => $message->id]);
+});
+
+it('forbids a user from updating or deleting another users message', function () {
+    $owner = User::factory()->create();
+    $otherUser = User::factory()->create();
+    $message = Message::factory()->for($owner)->create();
+
+    $this->actingAs($otherUser, 'sanctum')->putJson("/api/messages/{$message->id}", ['text' => 'Edited text'])
+        ->assertForbidden();
+
+    $this->actingAs($otherUser, 'sanctum')->deleteJson("/api/messages/{$message->id}")
+        ->assertForbidden();
 });
