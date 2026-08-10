@@ -23,6 +23,7 @@ class MessageResource extends JsonResource
             'createdAt' => $this->created_at,
             'updatedAt' => $this->updated_at,
             'deletedAt' => $this->deleted_at,
+            'user' => $this->whenLoaded('user', fn () => new UserResource($this->user)),
         ];
     }
 }

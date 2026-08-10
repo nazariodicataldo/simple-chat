@@ -5,18 +5,28 @@ namespace App\Http\Controllers;
 use App\Http\Requests\MessageRequest;
 use App\Http\Resources\MessageResource;
 use App\Models\Message;
+use App\Traits\ApiResponse;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Symfony\Component\HttpFoundation\Response;
 
 class MessageController extends Controller
 {
+    use ApiResponse;
+
     /**
      * Display a listing of the resource.
      */
-    public function index(): AnonymousResourceCollection
+    public function index(): JsonResponse
     {
-        return MessageResource::collection(Message::all());
+        $messages = Message::with('user')
+            ->orderByDesc('id')
+            ->cursorPaginate(20);
+
+        return self::apiResponse(
+            success: true,
+            dataOrErrors: MessageResource::collection($messages),
+            paginator: $messages,
+        );
     }
 
     /**
@@ -29,27 +39,35 @@ class MessageController extends Controller
             'user_id' => 1,
         ]);
 
-        return (new MessageResource($message))
-            ->response()
-            ->setStatusCode(Response::HTTP_CREATED);
+        return self::apiResponse(
+            success: true,
+            dataOrErrors: new MessageResource($message),
+            code: Response::HTTP_CREATED,
+        );
     }
 
     /**
      * Display the specified resource.
      */
-    public function show(Message $message): MessageResource
+    public function show(Message $message): JsonResponse
     {
-        return new MessageResource($message);
+        return self::apiResponse(
+            success: true,
+            dataOrErrors: new MessageResource($message),
+        );
     }
 
     /**
      * Update the specified resource in storage.
      */
-    public function update(MessageRequest $request, Message $message): MessageResource
+    public function update(MessageRequest $request, Message $message): JsonResponse
     {
         $message->update($request->validated());
 
-        return new MessageResource($message);
+        return self::apiResponse(
+            success: true,
+            dataOrErrors: new MessageResource($message),
+        );
     }
 
     /**
