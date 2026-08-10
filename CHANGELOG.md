@@ -8,7 +8,7 @@ Il formato e' ispirato a [Keep a Changelog](https://keepachangelog.com/it/1.1.0/
 
 - Base documentale e workflow operativo per il progetto Group Chat.
 
-- Envelope standard per le risposte API riuscite del CRUD Message e cursor pagination della cronologia con autore pubblico.
+- Envelope standard per le risposte API riuscite del CRUD Message e cursor pagination della cronologia con autore pubblico privo di email.
 
 ### Changed
 

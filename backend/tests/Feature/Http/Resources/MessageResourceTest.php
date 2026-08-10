@@ -54,11 +54,8 @@ it('includes the public user only when the relation is loaded', function () {
                 'id' => 1,
                 'firstName' => 'Ada',
                 'lastName' => 'Lovelace',
-                'email' => 'ada@example.test',
                 'username' => 'ada-lovelace',
-                'emailVerifiedAt' => null,
-                'createdAt' => null,
-                'updatedAt' => null,
             ],
-        ]);
+        ])
+        ->and($response['data']['user'])->not->toHaveKey('email');
 });

@@ -1,4 +1,4 @@
-# M1-007 — Autenticazione Sanctum per SPA
+# M1-008 — Autenticazione Sanctum per SPA
 
 - **Stato:** proposta
 - **Milestone:** Milestone 1 — Chat HTTP autenticata

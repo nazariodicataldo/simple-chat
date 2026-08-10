@@ -42,23 +42,48 @@ it('validates message text when creating and updating', function () {
         ->assertJsonValidationErrors('text');
 });
 
-it('returns cursor-paginated recent messages with their public authors', function () {
+it('returns cursor-paginated messages in chronological order with public authors', function () {
     User::factory()->create(['id' => 1]);
-    $author = User::factory()->create([
+    $olderAuthor = User::factory()->create([
         'first_name' => 'Ada',
         'last_name' => 'Lovelace',
         'username' => 'ada-lovelace',
     ]);
-    $messages = Message::factory()->count(21)->for($author)->create();
+    $newerAuthor = User::factory()->create([
+        'first_name' => 'Grace',
+        'last_name' => 'Hopper',
+        'username' => 'grace-hopper',
+    ]);
+    $olderMessages = Message::factory()->count(10)->for($olderAuthor)->create();
+    $newerMessages = Message::factory()->count(11)->for($newerAuthor)->create();
 
     $response = $this->getJson('/api/messages')
         ->assertOk()
+        ->assertJsonStructure([
+            'success',
+            'data',
+            'timestamp',
+            'message',
+            'code',
+            'pagination' => [
+                'nextCursor',
+                'previousCursor',
+                'hasMorePages',
+                'perPage',
+            ],
+        ])
         ->assertJsonPath('success', true)
         ->assertJsonCount(20, 'data')
-        ->assertJsonPath('data.0.id', $messages->last()->id)
-        ->assertJsonPath('data.0.user.id', $author->id)
+        ->assertJsonPath('data.0.id', $olderMessages->first()->id)
+        ->assertJsonPath('data.0.user.id', $olderAuthor->id)
         ->assertJsonPath('data.0.user.firstName', 'Ada')
+        ->assertJsonPath('data.10.user.id', $newerAuthor->id)
+        ->assertJsonPath('data.10.user.firstName', 'Grace')
+        ->assertJsonMissing(['email' => $olderAuthor->email])
+        ->assertJsonMissing(['email' => $newerAuthor->email])
+        ->assertJsonPath('message', null)
         ->assertJsonPath('pagination.perPage', 20)
+        ->assertJsonPath('pagination.previousCursor', null)
         ->assertJsonPath('pagination.hasMorePages', true)
         ->assertJsonPath('code', 200);
 
@@ -66,11 +91,20 @@ it('returns cursor-paginated recent messages with their public authors', functio
 
     expect($nextCursor)->toBeString()->not->toBeEmpty();
 
-    $this->getJson('/api/messages?cursor='.$nextCursor)
+    $nextResponse = $this->getJson('/api/messages?cursor='.$nextCursor)
         ->assertOk()
         ->assertJsonCount(1, 'data')
-        ->assertJsonPath('data.0.id', $messages->first()->id)
+        ->assertJsonPath('data.0.id', $newerMessages->last()->id)
         ->assertJsonPath('pagination.hasMorePages', false);
+
+    $previousCursor = $nextResponse->json('pagination.previousCursor');
+
+    expect($previousCursor)->toBeString()->not->toBeEmpty();
+
+    $this->getJson('/api/messages?cursor='.$previousCursor)
+        ->assertOk()
+        ->assertJsonCount(20, 'data')
+        ->assertJsonPath('data.0.id', $olderMessages->first()->id);
 });
 
 it('wraps show and update responses while keeping destroy empty', function () {
@@ -81,13 +115,17 @@ it('wraps show and update responses while keeping destroy empty', function () {
         ->assertOk()
         ->assertJsonPath('success', true)
         ->assertJsonPath('data.text', 'Original text')
-        ->assertJsonPath('code', 200);
+        ->assertJsonPath('message', null)
+        ->assertJsonPath('code', 200)
+        ->assertJsonStructure(['timestamp']);
 
     $this->putJson("/api/messages/{$message->id}", ['text' => 'Edited text'])
         ->assertOk()
         ->assertJsonPath('success', true)
         ->assertJsonPath('data.text', 'Edited text')
-        ->assertJsonPath('code', 200);
+        ->assertJsonPath('message', null)
+        ->assertJsonPath('code', 200)
+        ->assertJsonStructure(['timestamp']);
 
     $this->deleteJson("/api/messages/{$message->id}")
         ->assertNoContent();

@@ -18,9 +18,7 @@ class MessageController extends Controller
      */
     public function index(): JsonResponse
     {
-        $messages = Message::with('user')
-            ->orderByDesc('id')
-            ->cursorPaginate(20);
+        $messages = Message::with('user')->orderBy('id')->cursorPaginate(20);
 
         return self::apiResponse(
             success: true,

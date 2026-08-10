@@ -33,9 +33,9 @@ Frontend, standardizzazione di errori/validation/404, autenticazione, modifica d
 - `ApiResponse` restituisce sempre, per i successi, `success`, `data`, `timestamp`, `message` nullable e `code` uguale allo status HTTP.
 - Le Resource/Resource Collection sono risolte prima di entrare nel campo `data`, senza esporre attributi dei modelli.
 - Le risposte riuscite di index, store, show e update Message usano l'envelope; destroy conserva `204 No Content` senza body.
-- L'index usa `with('user')`, ordine `id` decrescente e `cursorPaginate(20)`.
+- L'index usa `with('user')`, ordine `id` crescente e `cursorPaginate(20)`.
 - Solo l'index aggiunge `pagination` con `nextCursor`, `previousCursor`, `hasMorePages` e `perPage`; non espone totale o numero pagina.
-- `MessageResource` include `user` tramite `UserResource` solo con relazione caricata e conserva `userId`.
+- `MessageResource` include l'autore pubblico solo con relazione caricata e conserva `userId`.
 
 ## Strategia di test
 
@@ -49,7 +49,7 @@ TDD sulle superfici HTTP CRUD e sul contratto di `MessageResource`: envelope dei
 ## Criteri di accettazione
 
 - [x] L'envelope dei successi è riutilizzabile e adottato dalle API Message applicabili.
-- [x] `GET /api/messages` restituisce pagine cursor di 20 messaggi recenti con metadati corretti.
+- [x] `GET /api/messages` restituisce pagine cursor di 20 messaggi in ordine cronologico con metadati corretti.
 - [x] Ogni messaggio della lista include il proprio autore pubblico, senza caricarlo quando MessageResource è usata isolatamente.
 - [x] Test e controlli richiesti sono eseguiti e documentati.
 
@@ -91,4 +91,4 @@ Creare almeno 21 messaggi e richiedere `/api/messages`: verificare 20 record, au
 
 ## Riepilogo finale
 
-Il CRUD Message adotta l'envelope dei successi, eccetto il delete 204 concordato. Il listing restituisce gli ultimi 20 messaggi con cursor pagination e autore pubblico eager-loaded.
+Il CRUD Message adotta l'envelope dei successi, eccetto il delete 204 concordato. Il listing restituisce 20 messaggi in ordine cronologico con cursor pagination e autore pubblico eager-loaded. Contratto e test sono stati corretti da M1-007.
