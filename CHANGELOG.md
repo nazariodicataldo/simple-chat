@@ -12,6 +12,8 @@ Il formato e' ispirato a [Keep a Changelog](https://keepachangelog.com/it/1.1.0/
 
 - Autenticazione SPA backend con Laravel Sanctum: cookie/CSRF, registrazione, login, logout, utente corrente e protezione dei Message per utente autenticato.
 
+- Gate frontend per autenticazione SPA: controllo server-side della sessione, form login/registrazione/logout, cookie CSRF deduplicato e retry singolo su `419`.
+
 ### Changed
 
 - Inizializzato un unico repository Git nella root del monorepo; rimossi i repository Git annidati di backend e frontend.

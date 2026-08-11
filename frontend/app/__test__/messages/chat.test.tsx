@@ -47,6 +47,7 @@ describe("Chat", () => {
             updatedAt: "2026-08-07T10:00:00.000000Z",
             deletedAt: null,
             author: {
+              id: 1,
               firstName: "Felix",
               lastName: "Miller",
               username: "felix",

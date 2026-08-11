@@ -1,10 +1,10 @@
 # Stato corrente
 
 - **Milestone corrente:** Milestone 1 — Chat HTTP autenticata
-- **Ultimo task completato:** M1-008 — Autenticazione Sanctum per SPA.
+- **Ultimo task completato:** M1-009 — Interfaccia frontend di autenticazione SPA.
 - **Task attivo:** nessuno.
-- **Prossimo task suggerito:** definire il task frontend per autenticazione SPA e integrazione cookie/CSRF.
-- **Ultimo aggiornamento:** 2026-08-10.
+- **Prossimo task suggerito:** definire il prossimo task della Milestone 1.
+- **Ultimo aggiornamento:** 2026-08-11.
 
 ## Funzionalita' esistenti
 
@@ -15,6 +15,7 @@
 - M1-004 ha introdotto il dominio Message con soft-delete, CRUD HTTP, Resource camelCase, policy di proprietà e test; M1-008 associa ora la creazione all'utente autenticato. Migration e smoke test Postman sono verificati sul database PostgreSQL locale Lerd.
 - M1-006/M1-007 standardizzano le risposte riuscite del CRUD Message con `success`, `data`, `timestamp`, `message` e `code`; `DELETE` conserva `204 No Content`. `GET /api/messages` restituisce 20 record in ordine cronologico con cursor pagination e autore pubblico eager-loaded, senza email.
 - M1-008 ha implementato Sanctum 4.3.3 per SPA cookie/CSRF, CORS con credenziali per `http://localhost:3000`, endpoint register/login/logout/user con risposte riuscite `ApiResponse` e protezione `auth:sanctum` per Message. La verifica backend con test, PHPStan, Pint e Postman è riuscita.
+- M1-009 implementa il gate server-side della sessione in `/`, login/register/logout, form auth separati con campi camelCase convertiti nel service, CSRF browser deduplicato con retry singolo su `419` e service Axios server-only con inoltro cookie/origin/referer. Il typecheck completo è ancora bloccato da una modifica preesistente a `message.type.ts`; lo smoke browser è rinviato.
 - Lerd configura PostgreSQL, Redis e Mailpit locali. Non sono ancora implementati/documentati chat completa, Reverb, queue, Docker o CI.
 
 ## Test esistenti
@@ -34,6 +35,7 @@
 - PHPStan richiede il limite CLI `--memory-limit=512M` nell’ambiente locale dello sviluppatore.
 - Nel sandbox corrente PHP è `8.3.6`, mentre le dipendenze installate richiedono PHP `>= 8.4.1`; PHPStan non può quindi avviarsi. `composer` non è installato nel PATH del sandbox, perciò Pest non può essere eseguito qui.
 - M1-008: Lerd non è avviabile nel sandbox perché non può raggiungere il D-Bus della sessione dello sviluppatore. Le verifiche locali di Pest e PHPStan e Pint completo nel sandbox sono riusciti. Lo smoke browser è rinviato al prossimo task frontend per decisione esplicita.
+- M1-009: lint, typecheck, build e 28 test frontend sono riusciti; smoke browser Sanctum per login, register, logout, credenziali non valide, email già registrata ed errore sessione riuscito.
 
 ## Decisioni aperte
 

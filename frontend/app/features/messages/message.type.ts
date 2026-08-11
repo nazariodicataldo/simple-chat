@@ -1,5 +1,5 @@
-
 export type MessageAuthor = {
+  id: number
   firstName: string
   lastName: string
   username: string
