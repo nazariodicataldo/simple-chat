@@ -1,10 +1,10 @@
 # Stato corrente
 
 - **Milestone corrente:** Milestone 1 — Chat HTTP autenticata
-- **Ultimo task completato:** M1-009 — Interfaccia frontend di autenticazione SPA.
+- **Ultimo task completato:** M1-010 — Infinite scroll cursor e identita' nella chat.
 - **Task attivo:** nessuno.
-- **Prossimo task suggerito:** definire il prossimo task della Milestone 1.
-- **Ultimo aggiornamento:** 2026-08-11.
+- **Prossimo task suggerito:** update e delete Message lato frontend.
+- **Ultimo aggiornamento:** 2026-08-12.
 
 ## Funzionalita' esistenti
 
@@ -15,7 +15,8 @@
 - M1-004 ha introdotto il dominio Message con soft-delete, CRUD HTTP, Resource camelCase, policy di proprietà e test; M1-008 associa ora la creazione all'utente autenticato. Migration e smoke test Postman sono verificati sul database PostgreSQL locale Lerd.
 - M1-006/M1-007 standardizzano le risposte riuscite del CRUD Message con `success`, `data`, `timestamp`, `message` e `code`; `DELETE` conserva `204 No Content`. `GET /api/messages` restituisce 20 record in ordine cronologico con cursor pagination e autore pubblico eager-loaded, senza email.
 - M1-008 ha implementato Sanctum 4.3.3 per SPA cookie/CSRF, CORS con credenziali per `http://localhost:3000`, endpoint register/login/logout/user con risposte riuscite `ApiResponse` e protezione `auth:sanctum` per Message. La verifica backend con test, PHPStan, Pint e Postman è riuscita.
-- M1-009 implementa il gate server-side della sessione in `/`, login/register/logout, form auth separati con campi camelCase convertiti nel service, CSRF browser deduplicato con retry singolo su `419` e service Axios server-only con inoltro cookie/origin/referer. Il typecheck completo è ancora bloccato da una modifica preesistente a `message.type.ts`; lo smoke browser è rinviato.
+- M1-009 implementa il gate server-side della sessione in `/`, login/register/logout, form auth separati con campi camelCase convertiti nel service, CSRF browser deduplicato con retry singolo su `419` e service Axios server-only con inoltro cookie/origin/referer. Lint, typecheck, build e smoke browser sono riusciti.
+- M1-010 tipizza l'envelope cursor Message, carica le pagine successive con infinite scroll TanStack Query e mostra autore reale nelle bubble. L'invio usa una bubble optimistic con `Sending...`, errore destructive e retry; il profilo autenticato e' visibile sopra la card chat.
 - Lerd configura PostgreSQL, Redis e Mailpit locali. Non sono ancora implementati/documentati chat completa, Reverb, queue, Docker o CI.
 
 ## Test esistenti
@@ -23,6 +24,7 @@
 - Backend: Pest verificato localmente con `composer test`: 13 test superati, 87 assertion (M1-007, 2026-08-10).
 - Backend, M1-008: `composer test` verificato localmente con PHP 8.5 Lerd (20 test, 140 assertion); PHPStan con `--memory-limit=512M` riuscito (34/34, nessun errore). Smoke test Postman per Sanctum cookie/CSRF riuscito.
 - Frontend: Vitest configurato con jsdom e React Testing Library; M1-005 verifica chat e schema Zod con 6 test.
+- Frontend, M1-010: `pnpm test` riuscito con 10 file e 32 test; lint, typecheck e build riusciti. Smoke browser optimistic/infinite scroll da verificare localmente.
 - Frontend: lint e typecheck verificati con Node `v24.19.0` e pnpm `11.20.0`; lint segnala un warning ESLint esistente ma nessun errore. Build Next.js `16.2.6` verificata localmente dallo sviluppatore: compilazione, TypeScript e generazione delle pagine statiche riusciti.
 - Backend, M1-003: suite Pest (3 test, 10 assertion), Pint completo (28 file) e PHPStan con `--memory-limit=512M` verificati localmente dallo sviluppatore.
 

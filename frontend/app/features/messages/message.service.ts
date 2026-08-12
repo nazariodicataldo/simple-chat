@@ -5,6 +5,8 @@ import { http } from "@/lib/http"
 import type {
   CreateMessageInput,
   Message,
+  MessageListQueryParams,
+  MessageListResponse,
   UpdateMessageInput,
 } from "./message.type"
 
@@ -12,11 +14,15 @@ type ResourceResponse<T> = {
   data: T
 }
 
-export async function listMessages(): Promise<Message[]> {
-  const response: AxiosResponse<ResourceResponse<Message[]>> =
-    await http.get("/api/messages")
+export async function listMessages(
+  queryParams: MessageListQueryParams = {}
+): Promise<MessageListResponse> {
+  const response: AxiosResponse<MessageListResponse> = await http.get(
+    "/api/messages",
+    { params: queryParams }
+  )
 
-  return response.data.data
+  return response.data
 }
 
 export async function getMessage(id: number): Promise<Message> {

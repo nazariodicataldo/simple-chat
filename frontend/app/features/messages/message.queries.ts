@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { type InfiniteData, useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 
 import {
   createMessage,
@@ -7,7 +7,7 @@ import {
   listMessages,
   updateMessage,
 } from "./message.service"
-import type { CreateMessageInput, UpdateMessageInput } from "./message.type"
+import type { CreateMessageInput, MessageListQueryParams, MessageListResponse, UpdateMessageInput } from "./message.type"
 
 export const messageKeys = {
   all: ["messages"] as const,
@@ -16,10 +16,24 @@ export const messageKeys = {
   detail: (id: number) => [...messageKeys.details(), id] as const,
 }
 
+export function getNextMessagePageParam(lastPage: Awaited<ReturnType<typeof listMessages>>) {
+  return lastPage.pagination.hasMorePages && lastPage.pagination.nextCursor
+    ? { cursor: lastPage.pagination.nextCursor }
+    : undefined
+}
+
 export function useMessagesQuery() {
-  return useQuery({
+  return useInfiniteQuery<
+    MessageListResponse,
+    Error,
+    InfiniteData<MessageListResponse>,
+    ReturnType<typeof messageKeys.lists>,
+    MessageListQueryParams
+  >({
     queryKey: messageKeys.lists(),
-    queryFn: listMessages,
+    initialPageParam: {} as MessageListQueryParams,
+    queryFn: ({ pageParam }) => listMessages(pageParam),
+    getNextPageParam: getNextMessagePageParam,
   })
 }
 
@@ -35,7 +49,11 @@ export function useCreateMessageMutation() {
 
   return useMutation({
     mutationFn: (input: CreateMessageInput) => createMessage(input),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: messageKeys.lists() }),
+    onSuccess: () =>
+      queryClient.invalidateQueries({
+        queryKey: messageKeys.lists(),
+        refetchType: "none",
+      }),
   })
 }
 

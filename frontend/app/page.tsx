@@ -13,5 +13,5 @@ export default async function Page() {
     return <SessionError />
   }
 
-  return user ? <ChatPage /> : <AuthGate />
+  return user ? <ChatPage currentUser={{ id: user.id, firstName: user.firstName, lastName: user.lastName, username: user.username }} /> : <AuthGate />
 }

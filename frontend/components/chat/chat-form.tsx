@@ -5,12 +5,23 @@ import { zodResolver } from "@hookform/resolvers/zod"
 
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
-import { useCreateMessageMutation } from "@/app/features/messages/message.queries"
 import { createMessageSchema } from "@/app/features/messages/message.schema"
 import type { CreateMessageInput } from "@/app/features/messages/message.type"
+import type { LocalMessage, MessageUser } from "@/app/features/messages/message.type"
 
-export function ChatForm() {
-  const createMessage = useCreateMessageMutation()
+type ChatFormProps = {
+  currentUser: MessageUser
+  onSubmitMessage: (message: LocalMessage) => void
+}
+
+function createTemporaryMessageId() {
+  return (
+    globalThis.crypto?.randomUUID?.() ??
+    `temporary-${Date.now()}-${Math.random().toString(36).slice(2)}`
+  )
+}
+
+export function ChatForm({ currentUser, onSubmitMessage }: ChatFormProps) {
   const {
     handleSubmit,
     register,
@@ -24,12 +35,20 @@ export function ChatForm() {
   const text = useWatch({ control, name: "text" }) ?? ""
 
   function submit(values: CreateMessageInput) {
-    createMessage.mutate(
-      { text: values.text.trim() },
-      {
-        onSuccess: () => reset(),
-      }
-    )
+    const temporaryId = createTemporaryMessageId()
+    const message: LocalMessage = {
+      id: temporaryId,
+      userId: currentUser.id,
+      text: values.text.trim(),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      deletedAt: null,
+      user: currentUser,
+      deliveryStatus: "sending",
+    }
+
+    onSubmitMessage(message)
+    reset()
   }
 
   return (
@@ -41,7 +60,6 @@ export function ChatForm() {
         id="message-text"
         placeholder="Write a message"
         maxLength={300}
-        disabled={createMessage.isPending}
         aria-describedby={
           errors.text
             ? "message-text-count message-text-error"
@@ -54,22 +72,17 @@ export function ChatForm() {
         <p id="message-text-count" className="text-xs text-muted-foreground">
           {text.length}/300
         </p>
-        <Button type="submit" disabled={createMessage.isPending}>
-          {createMessage.isPending ? "Sending..." : "Send message"}
+        <Button type="submit">
+          Send message
         </Button>
       </div>
       {errors.text ? (
         <p
           id="message-text-error"
           role="alert"
-          className="mt-3 text-sm text-destructive"
+          className="mt-3 text-sm text-destructive dark:text-red-400"
         >
           {errors.text.message}
-        </p>
-      ) : null}
-      {createMessage.isError ? (
-        <p role="alert" className="mt-3 text-sm text-destructive">
-          Unable to send your message. Please try again.
         </p>
       ) : null}
     </form>

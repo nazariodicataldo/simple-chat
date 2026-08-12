@@ -27,6 +27,7 @@ Object.defineProperty(window, "ResizeObserver", {
 })
 
 Object.defineProperty(window, "IntersectionObserver", {
+  configurable: true,
   writable: true,
   value: IntersectionObserverMock,
 })

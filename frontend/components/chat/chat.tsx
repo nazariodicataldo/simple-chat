@@ -1,5 +1,7 @@
 "use client"
 
+import { useEffect, useRef } from "react"
+
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Bubble, BubbleContent } from "@/components/ui/bubble"
 import { Button } from "@/components/ui/button"
@@ -8,7 +10,6 @@ import {
   MessageAvatar,
   MessageContent,
   MessageFooter,
-  MessageHeader,
 } from "@/components/ui/message"
 import {
   MessageScroller,
@@ -19,13 +20,19 @@ import {
   MessageScrollerViewport,
 } from "@/components/ui/message-scroller"
 import { Skeleton } from "@/components/ui/skeleton"
-import type { Message as ChatMessage } from "@/app/features/messages/message.type"
+import type { ChatMessage, LocalMessage, MessageUser } from "@/app/features/messages/message.type"
 
 type ChatProps = {
   messages: ChatMessage[]
   isPending: boolean
   isError: boolean
   onRetry: () => void
+  currentUser: MessageUser
+  hasNextPage: boolean
+  isFetchingNextPage: boolean
+  isFetchNextPageError: boolean
+  onLoadMore: () => void
+  onRetryMessage: (message: LocalMessage) => void
 }
 
 function formatMessageDate(createdAt: string) {
@@ -33,16 +40,6 @@ function formatMessageDate(createdAt: string) {
     dateStyle: "medium",
     timeStyle: "short",
   }).format(new Date(createdAt))
-}
-
-function getAuthor(message: ChatMessage) {
-  return (
-    message.author ?? {
-      firstName: "User",
-      lastName: `#${message.userId}`,
-      username: `user-${message.userId}`,
-    }
-  )
 }
 
 function getInitials(firstName: string, lastName: string) {
@@ -53,11 +50,12 @@ function getAvatarUrl(username: string) {
   return `https://api.dicebear.com/10.x/glyphs/svg?seed=${encodeURIComponent(username)}`
 }
 
-function MessageRow({ message }: { message: ChatMessage }) {
-  const author = getAuthor(message)
+function MessageRow({ message, currentUser, onRetryMessage }: { message: ChatMessage; currentUser: MessageUser; onRetryMessage: (message: LocalMessage) => void }) {
+  const author = message.user
   const displayName = `${author.firstName} ${author.lastName}`
   const createdAt = formatMessageDate(message.createdAt)
-  const isCurrentUser = message.userId === 1
+  const isCurrentUser = message.userId === currentUser.id
+  const local = "deliveryStatus" in message ? message : null
 
   return (
     <Message
@@ -76,9 +74,18 @@ function MessageRow({ message }: { message: ChatMessage }) {
         </Avatar>
       </MessageAvatar>
       <MessageContent>
-        <MessageHeader>{displayName}</MessageHeader>
         <Bubble variant={isCurrentUser ? "default" : "secondary"}>
-          <BubbleContent>{message.text}</BubbleContent>
+          <BubbleContent className="space-y-1">
+            <p className="text-xs font-medium">{displayName}</p>
+            <p>{message.text}</p>
+            {local?.deliveryStatus === "sending" ? <p role="status" aria-live="polite" className="text-xs text-muted-foreground">Sending...</p> : null}
+            {local?.deliveryStatus === "failed" ? (
+              <div role="alert" className="space-y-1 text-sm text-destructive dark:text-red-400">
+                <p>Failed to send the message.</p>
+                <Button type="button" variant="outline" size="sm" onClick={() => onRetryMessage(local)}>Try again</Button>
+              </div>
+            ) : null}
+          </BubbleContent>
         </Bubble>
         <MessageFooter>
           <time dateTime={message.createdAt}>{createdAt}</time>
@@ -101,11 +108,56 @@ function PendingMessage() {
   )
 }
 
-export function Chat({ messages, isPending, isError, onRetry }: ChatProps) {
+export function Chat({ messages, isPending, isError, onRetry, currentUser, hasNextPage, isFetchingNextPage, isFetchNextPageError, onLoadMore, onRetryMessage }: ChatProps) {
+  const sentinelRef = useRef<HTMLDivElement>(null)
+  const viewportRef = useRef<HTMLDivElement>(null)
+  const lastMessageRef = useRef<HTMLDivElement>(null)
+  const nextPageRequestedRef = useRef(false)
+
+  useEffect(() => {
+    if (
+      !hasNextPage ||
+      isFetchingNextPage ||
+      isFetchNextPageError ||
+      !sentinelRef.current
+    ) {
+      return
+    }
+
+    nextPageRequestedRef.current = false
+    const observer = new IntersectionObserver(([entry]) => {
+      if (
+        entry.isIntersecting &&
+        hasNextPage &&
+        !isFetchingNextPage &&
+        !isFetchNextPageError &&
+        !nextPageRequestedRef.current
+      ) {
+        nextPageRequestedRef.current = true
+        onLoadMore()
+      }
+    }, { root: viewportRef.current })
+    observer.observe(sentinelRef.current)
+    return () => observer.disconnect()
+  }, [hasNextPage, isFetchingNextPage, isFetchNextPageError, onLoadMore])
+
+  useEffect(() => {
+    const latest = messages.at(-1)
+    const target = lastMessageRef.current
+    if (
+      latest &&
+      "deliveryStatus" in latest &&
+      latest.deliveryStatus === "sending" &&
+      typeof target?.scrollIntoView === "function"
+    ) {
+      target.scrollIntoView({ behavior: "smooth", block: "end" })
+    }
+  }, [messages])
+
   return (
-    <MessageScrollerProvider autoScroll>
+    <MessageScrollerProvider>
       <MessageScroller>
-        <MessageScrollerViewport aria-label="Messages">
+        <MessageScrollerViewport ref={viewportRef} aria-label="Messages">
           <MessageScrollerContent className="gap-4 p-5">
             {isPending ? (
               <MessageScrollerItem>
@@ -121,8 +173,8 @@ export function Chat({ messages, isPending, isError, onRetry }: ChatProps) {
             ) : null}
 
             {isError ? (
-              <MessageScrollerItem>
-                <div role="alert" className="space-y-3 text-sm">
+              <MessageScrollerItem className="my-auto flex justify-center">
+                <div role="alert" className="space-y-3 text-center text-sm text-destructive dark:text-red-400">
                   <p>Unable to load messages.</p>
                   <Button type="button" variant="outline" onClick={onRetry}>
                     Try again
@@ -145,10 +197,15 @@ export function Chat({ messages, isPending, isError, onRetry }: ChatProps) {
                     key={message.id}
                     messageId={String(message.id)}
                   >
-                    <MessageRow message={message} />
+                  <div ref={message === messages.at(-1) ? lastMessageRef : undefined}>
+                    <MessageRow message={message} currentUser={currentUser} onRetryMessage={onRetryMessage} />
+                  </div>
                   </MessageScrollerItem>
                 ))
               : null}
+            {!isPending && !isError ? <MessageScrollerItem><div ref={sentinelRef} aria-hidden="true" /></MessageScrollerItem> : null}
+            {isFetchingNextPage ? <MessageScrollerItem><p role="status" aria-live="polite" className="text-sm text-muted-foreground">Loading messages...</p></MessageScrollerItem> : null}
+            {isFetchNextPageError ? <MessageScrollerItem><div role="alert" className="space-y-2 text-sm text-destructive dark:text-red-400"><p>Unable to load more messages.</p><Button type="button" variant="outline" onClick={onLoadMore}>Try again</Button></div></MessageScrollerItem> : null}
           </MessageScrollerContent>
         </MessageScrollerViewport>
         <MessageScrollerButton />

@@ -14,6 +14,10 @@ Il formato e' ispirato a [Keep a Changelog](https://keepachangelog.com/it/1.1.0/
 
 - Gate frontend per autenticazione SPA: controllo server-side della sessione, form login/registrazione/logout, cookie CSRF deduplicato e retry singolo su `419`.
 
+- Chat frontend con cursor pagination in infinite scroll, messaggi optimistic con
+  stati di invio/riprova, identita' dell'utente autenticato e autori reali nelle
+  bubble.
+
 ### Changed
 
 - Inizializzato un unico repository Git nella root del monorepo; rimossi i repository Git annidati di backend e frontend.
