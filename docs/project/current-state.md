@@ -1,10 +1,10 @@
 # Stato corrente
 
 - **Milestone corrente:** Milestone 1 — Chat HTTP autenticata
-- **Ultimo task completato:** M1-010 — Infinite scroll cursor e identita' nella chat.
+- **Ultimo task completato:** M1-011 — Completare CRUD messaggi lato frontend.
 - **Task attivo:** nessuno.
-- **Prossimo task suggerito:** update e delete Message lato frontend.
-- **Ultimo aggiornamento:** 2026-08-12.
+- **Prossimo task suggerito:** chiudere la Milestone 1.
+- **Ultimo aggiornamento:** 2026-08-13.
 
 ## Funzionalita' esistenti
 
@@ -17,6 +17,11 @@
 - M1-008 ha implementato Sanctum 4.3.3 per SPA cookie/CSRF, CORS con credenziali per `http://localhost:3000`, endpoint register/login/logout/user con risposte riuscite `ApiResponse` e protezione `auth:sanctum` per Message. La verifica backend con test, PHPStan, Pint e Postman è riuscita.
 - M1-009 implementa il gate server-side della sessione in `/`, login/register/logout, form auth separati con campi camelCase convertiti nel service, CSRF browser deduplicato con retry singolo su `419` e service Axios server-only con inoltro cookie/origin/referer. Lint, typecheck, build e smoke browser sono riusciti.
 - M1-010 tipizza l'envelope cursor Message, carica le pagine successive con infinite scroll TanStack Query e mostra autore reale nelle bubble. L'invio usa una bubble optimistic con `Sending...`, errore destructive e retry; il profilo autenticato e' visibile sopra la card chat.
+- M1-011 implementa lato frontend le azioni update/delete per i soli messaggi
+  persistiti dell'utente corrente: popover, dialog accessibili, alert persistenti
+  e riuso delle mutation esistenti. Il pulsante create resta disabilitato con
+  testo trim-vuoto. I test, lint e typecheck sono riusciti nel sandbox; la build
+  Next.js e' riuscita nell'ambiente locale dello sviluppatore.
 - Lerd configura PostgreSQL, Redis e Mailpit locali. Non sono ancora implementati/documentati chat completa, Reverb, queue, Docker o CI.
 
 ## Test esistenti

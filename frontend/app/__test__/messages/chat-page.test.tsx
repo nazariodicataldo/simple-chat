@@ -1,14 +1,20 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
-import { beforeEach, describe, expect, it, vi } from "vitest"
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
-const { mutate, useCreateMessageMutation, useMessagesQuery } = vi.hoisted(() => ({
+const { mutate, updateMutate, deleteMutate, useCreateMessageMutation, useUpdateMessageMutation, useDeleteMessageMutation, useMessagesQuery } = vi.hoisted(() => ({
   mutate: vi.fn(),
+  updateMutate: vi.fn(),
+  deleteMutate: vi.fn(),
   useCreateMessageMutation: vi.fn(),
+  useUpdateMessageMutation: vi.fn(),
+  useDeleteMessageMutation: vi.fn(),
   useMessagesQuery: vi.fn(),
 }))
 
 vi.mock("@/app/features/messages/message.queries", () => ({
   useCreateMessageMutation,
+  useUpdateMessageMutation,
+  useDeleteMessageMutation,
   useMessagesQuery,
 }))
 
@@ -26,7 +32,7 @@ const currentUser = {
 }
 
 type MutationCallbacks = {
-  onError?: () => void
+  onError?: (error?: unknown) => void
   onSuccess?: (message: {
     id: number
     userId: number
@@ -40,7 +46,11 @@ type MutationCallbacks = {
 describe("ChatPage", () => {
   beforeEach(() => {
     mutate.mockReset()
+    updateMutate.mockReset()
+    deleteMutate.mockReset()
     useCreateMessageMutation.mockReturnValue({ mutate })
+    useUpdateMessageMutation.mockReturnValue({ mutate: updateMutate, isPending: false })
+    useDeleteMessageMutation.mockReturnValue({ mutate: deleteMutate, isPending: false })
     useMessagesQuery.mockReturnValue({
       data: { pages: [] },
       fetchNextPage: vi.fn(),
@@ -51,6 +61,130 @@ describe("ChatPage", () => {
       isPending: false,
       refetch: vi.fn(),
     })
+  })
+
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
+  it("edits an owned message without scrolling and announces success", async () => {
+    const callbacks: MutationCallbacks[] = []
+    updateMutate.mockImplementation((_input, nextCallbacks) => callbacks.push(nextCallbacks))
+    useMessagesQuery.mockReturnValue({ data: { pages: [{ data: [{ id: 21, userId: 1, text: "Original", createdAt: "2026-08-12T10:00:00.000Z", updatedAt: "2026-08-12T10:00:00.000Z", deletedAt: null, user: currentUser }] }] }, fetchNextPage: vi.fn(), hasNextPage: false, isError: false, isFetchNextPageError: false, isFetchingNextPage: false, isPending: false, refetch: vi.fn() })
+    const scrollIntoView = vi.fn()
+    Object.defineProperty(Element.prototype, "scrollIntoView", { configurable: true, value: scrollIntoView })
+
+    render(<ChatPage currentUser={currentUser} />)
+    fireEvent.click(screen.getByRole("button", { name: "Message actions" }))
+    fireEvent.click(await screen.findByRole("button", { name: "Edit message" }))
+    expect(screen.getByRole("dialog")).toHaveTextContent("Original")
+    const textbox = screen.getByRole("textbox", { name: "Message text" })
+    fireEvent.change(textbox, { target: { value: "Changed" } })
+    fireEvent.click(screen.getByRole("button", { name: "Save" }))
+    await waitFor(() => expect(updateMutate).toHaveBeenCalledWith({ id: 21, input: { text: "Changed" } }, expect.any(Object)))
+    act(() => callbacks[0].onSuccess?.({} as never))
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
+    expect(screen.getByRole("alert")).toHaveTextContent("Message updated")
+    expect(screen.getByRole("alert")).toHaveClass("text-emerald-700")
+    expect(scrollIntoView).not.toHaveBeenCalled()
+  })
+
+  it("disables every edit dialog close action while the update is pending", async () => {
+    useUpdateMessageMutation.mockReturnValue({
+      mutate: updateMutate,
+      isPending: true,
+    })
+    useMessagesQuery.mockReturnValue({ data: { pages: [{ data: [{ id: 21, userId: 1, text: "Original", createdAt: "2026-08-12T10:00:00.000Z", updatedAt: "2026-08-12T10:00:00.000Z", deletedAt: null, user: currentUser }] }] }, fetchNextPage: vi.fn(), hasNextPage: false, isError: false, isFetchNextPageError: false, isFetchingNextPage: false, isPending: false, refetch: vi.fn() })
+
+    render(<ChatPage currentUser={currentUser} />)
+    fireEvent.click(screen.getByRole("button", { name: "Message actions" }))
+    fireEvent.click(await screen.findByRole("button", { name: "Edit message" }))
+
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled()
+    expect(screen.getByRole("button", { name: "Cancel" })).toBeDisabled()
+    expect(screen.getByRole("button", { name: "Close dialog" })).toBeDisabled()
+  })
+
+  it("keeps the edit dialog open and shows the server error inline when update fails", async () => {
+    const callbacks: MutationCallbacks[] = []
+    updateMutate.mockImplementation((_input, nextCallbacks) => callbacks.push(nextCallbacks))
+    useMessagesQuery.mockReturnValue({ data: { pages: [{ data: [{ id: 21, userId: 1, text: "Original", createdAt: "2026-08-12T10:00:00.000Z", updatedAt: "2026-08-12T10:00:00.000Z", deletedAt: null, user: currentUser }] }] }, fetchNextPage: vi.fn(), hasNextPage: false, isError: false, isFetchNextPageError: false, isFetchingNextPage: false, isPending: false, refetch: vi.fn() })
+
+    render(<ChatPage currentUser={currentUser} />)
+    fireEvent.click(screen.getByRole("button", { name: "Message actions" }))
+    fireEvent.click(await screen.findByRole("button", { name: "Edit message" }))
+    const textbox = screen.getByRole("textbox", { name: "Message text" })
+    expect(textbox).toHaveValue("Original")
+    fireEvent.change(textbox, { target: { value: "   " } })
+    expect(screen.getByRole("button", { name: "Save" })).toBeDisabled()
+    fireEvent.change(textbox, { target: { value: "Changed" } })
+    fireEvent.click(screen.getByRole("button", { name: "Save" }))
+    await waitFor(() => expect(callbacks).toHaveLength(1))
+
+    act(() => callbacks[0].onError?.({ response: { data: { message: "Not allowed." } } }))
+
+    expect(screen.getByRole("dialog")).toBeInTheDocument()
+    expect(textbox).toHaveAttribute("aria-invalid", "true")
+    expect(screen.getByRole("alert")).toHaveTextContent("Not allowed.")
+    expect(screen.queryByRole("button", { name: "Dismiss notification" })).not.toBeInTheDocument()
+    fireEvent.click(screen.getByRole("button", { name: "Close dialog" }))
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument()
+  })
+
+  it("closes delete confirmation and announces the server error", async () => {
+    const callbacks: MutationCallbacks[] = []
+    deleteMutate.mockImplementation((_input, nextCallbacks) => callbacks.push(nextCallbacks))
+    useMessagesQuery.mockReturnValue({ data: { pages: [{ data: [{ id: 21, userId: 1, text: "Delete this", createdAt: "2026-08-12T10:00:00.000Z", updatedAt: "2026-08-12T10:00:00.000Z", deletedAt: null, user: currentUser }] }] }, fetchNextPage: vi.fn(), hasNextPage: false, isError: false, isFetchNextPageError: false, isFetchingNextPage: false, isPending: false, refetch: vi.fn() })
+
+    render(<ChatPage currentUser={currentUser} />)
+    fireEvent.click(screen.getByRole("button", { name: "Message actions" }))
+    fireEvent.click(await screen.findByRole("button", { name: "Delete message" }))
+    expect(screen.getByRole("dialog")).toHaveTextContent("Delete this")
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }))
+    act(() => callbacks[0].onError?.({ response: { data: { message: "Not allowed." } } }))
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
+    expect(screen.getByRole("alert")).toHaveTextContent("Unable to delete message")
+  })
+
+  it("disables every delete dialog action while the delete is pending", async () => {
+    useDeleteMessageMutation.mockReturnValue({
+      mutate: deleteMutate,
+      isPending: true,
+    })
+    useMessagesQuery.mockReturnValue({ data: { pages: [{ data: [{ id: 21, userId: 1, text: "Delete this", createdAt: "2026-08-12T10:00:00.000Z", updatedAt: "2026-08-12T10:00:00.000Z", deletedAt: null, user: currentUser }] }] }, fetchNextPage: vi.fn(), hasNextPage: false, isError: false, isFetchNextPageError: false, isFetchingNextPage: false, isPending: false, refetch: vi.fn() })
+
+    render(<ChatPage currentUser={currentUser} />)
+    fireEvent.click(screen.getByRole("button", { name: "Message actions" }))
+    fireEvent.click(await screen.findByRole("button", { name: "Delete message" }))
+
+    expect(screen.getByRole("button", { name: "Delete" })).toBeDisabled()
+    expect(screen.getByRole("button", { name: "Cancel" })).toBeDisabled()
+    expect(screen.getByRole("button", { name: "Close dialog" })).toBeDisabled()
+  })
+
+  it("closes delete confirmation, announces a green success alert, and auto-dismisses it", async () => {
+    const callbacks: MutationCallbacks[] = []
+    deleteMutate.mockImplementation((_input, nextCallbacks) => callbacks.push(nextCallbacks))
+    useMessagesQuery.mockReturnValue({ data: { pages: [{ data: [{ id: 21, userId: 1, text: "Delete this", createdAt: "2026-08-12T10:00:00.000Z", updatedAt: "2026-08-12T10:00:00.000Z", deletedAt: null, user: currentUser }] }] }, fetchNextPage: vi.fn(), hasNextPage: false, isError: false, isFetchNextPageError: false, isFetchingNextPage: false, isPending: false, refetch: vi.fn() })
+
+    render(<ChatPage currentUser={currentUser} />)
+    fireEvent.click(screen.getByRole("button", { name: "Message actions" }))
+    fireEvent.click(await screen.findByRole("button", { name: "Delete message" }))
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }))
+    await waitFor(() => expect(callbacks).toHaveLength(1))
+
+    vi.useFakeTimers()
+    act(() => callbacks[0].onSuccess?.({} as never))
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument()
+    expect(screen.getByRole("alert")).toHaveTextContent("Message deleted")
+    expect(screen.getByRole("alert")).toHaveClass("text-emerald-700")
+    fireEvent.click(screen.getByRole("button", { name: "Dismiss notification" }))
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument()
+
+    act(() => callbacks[0].onSuccess?.({} as never))
+    act(() => vi.advanceTimersByTime(3_000))
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument()
   })
 
   it("keeps the optimistic bubble visible, scrolls to it, and replaces it on success", async () => {

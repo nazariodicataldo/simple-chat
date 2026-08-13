@@ -1,6 +1,7 @@
 "use client"
 
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
+import { MoreHorizontalIcon } from "lucide-react"
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
 import { Bubble, BubbleContent } from "@/components/ui/bubble"
@@ -20,6 +21,7 @@ import {
   MessageScrollerViewport,
 } from "@/components/ui/message-scroller"
 import { Skeleton } from "@/components/ui/skeleton"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import type { ChatMessage, LocalMessage, MessageUser } from "@/app/features/messages/message.type"
 
 type ChatProps = {
@@ -33,6 +35,8 @@ type ChatProps = {
   isFetchNextPageError: boolean
   onLoadMore: () => void
   onRetryMessage: (message: LocalMessage) => void
+  onEditMessage: (message: ChatMessage) => void
+  onDeleteMessage: (message: ChatMessage) => void
 }
 
 function formatMessageDate(createdAt: string) {
@@ -50,12 +54,14 @@ function getAvatarUrl(username: string) {
   return `https://api.dicebear.com/10.x/glyphs/svg?seed=${encodeURIComponent(username)}`
 }
 
-function MessageRow({ message, currentUser, onRetryMessage }: { message: ChatMessage; currentUser: MessageUser; onRetryMessage: (message: LocalMessage) => void }) {
+function MessageRow({ message, currentUser, onRetryMessage, onEditMessage, onDeleteMessage }: { message: ChatMessage; currentUser: MessageUser; onRetryMessage: (message: LocalMessage) => void; onEditMessage: (message: ChatMessage) => void; onDeleteMessage: (message: ChatMessage) => void }) {
   const author = message.user
   const displayName = `${author.firstName} ${author.lastName}`
   const createdAt = formatMessageDate(message.createdAt)
   const isCurrentUser = message.userId === currentUser.id
   const local = "deliveryStatus" in message ? message : null
+  const canManage = isCurrentUser && !local
+  const [actionsOpen, setActionsOpen] = useState(false)
 
   return (
     <Message
@@ -75,6 +81,21 @@ function MessageRow({ message, currentUser, onRetryMessage }: { message: ChatMes
       </MessageAvatar>
       <MessageContent>
         <Bubble variant={isCurrentUser ? "default" : "secondary"}>
+          {canManage ? (
+            <div className="absolute top-1/2 -left-10 -translate-y-1/2">
+              <Popover open={actionsOpen} onOpenChange={setActionsOpen}>
+                <PopoverTrigger render={<Button type="button" variant="ghost" size="icon-sm" aria-label="Message actions" />}>
+                  <MoreHorizontalIcon />
+                </PopoverTrigger>
+                <PopoverContent>
+                  <div className="grid gap-1">
+                    <Button type="button" variant="ghost" className="justify-start" onClick={() => { setActionsOpen(false); onEditMessage(message) }}>Edit message</Button>
+                    <Button type="button" variant="ghost" className="justify-start text-destructive dark:text-red-400" onClick={() => { setActionsOpen(false); onDeleteMessage(message) }}>Delete message</Button>
+                  </div>
+                </PopoverContent>
+              </Popover>
+            </div>
+          ) : null}
           <BubbleContent className="space-y-1">
             <p className="text-xs font-medium">{displayName}</p>
             <p>{message.text}</p>
@@ -108,7 +129,7 @@ function PendingMessage() {
   )
 }
 
-export function Chat({ messages, isPending, isError, onRetry, currentUser, hasNextPage, isFetchingNextPage, isFetchNextPageError, onLoadMore, onRetryMessage }: ChatProps) {
+export function Chat({ messages, isPending, isError, onRetry, currentUser, hasNextPage, isFetchingNextPage, isFetchNextPageError, onLoadMore, onRetryMessage, onEditMessage, onDeleteMessage }: ChatProps) {
   const sentinelRef = useRef<HTMLDivElement>(null)
   const viewportRef = useRef<HTMLDivElement>(null)
   const lastMessageRef = useRef<HTMLDivElement>(null)
@@ -198,7 +219,7 @@ export function Chat({ messages, isPending, isError, onRetry, currentUser, hasNe
                     messageId={String(message.id)}
                   >
                   <div ref={message === messages.at(-1) ? lastMessageRef : undefined}>
-                    <MessageRow message={message} currentUser={currentUser} onRetryMessage={onRetryMessage} />
+                    <MessageRow message={message} currentUser={currentUser} onRetryMessage={onRetryMessage} onEditMessage={onEditMessage} onDeleteMessage={onDeleteMessage} />
                   </div>
                   </MessageScrollerItem>
                 ))

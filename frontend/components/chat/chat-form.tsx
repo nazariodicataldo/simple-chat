@@ -72,7 +72,7 @@ export function ChatForm({ currentUser, onSubmitMessage }: ChatFormProps) {
         <p id="message-text-count" className="text-xs text-muted-foreground">
           {text.length}/300
         </p>
-        <Button type="submit">
+        <Button type="submit" disabled={!text.trim()}>
           Send message
         </Button>
       </div>

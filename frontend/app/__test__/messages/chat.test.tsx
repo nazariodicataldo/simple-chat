@@ -12,6 +12,8 @@ const chatProps = {
   isFetchNextPageError: false,
   onLoadMore: vi.fn(),
   onRetryMessage: vi.fn(),
+  onEditMessage: vi.fn(),
+  onDeleteMessage: vi.fn(),
 }
 
 describe("Chat", () => {
@@ -39,6 +41,17 @@ describe("Chat", () => {
         })
       )
     })
+  })
+
+  it("disables create submission until the message has non-whitespace text", () => {
+    render(<ChatForm currentUser={currentUser} onSubmitMessage={vi.fn()} />)
+
+    const submit = screen.getByRole("button", { name: "Send message" })
+    expect(submit).toBeDisabled()
+    fireEvent.change(screen.getByRole("textbox", { name: "New message" }), { target: { value: "   " } })
+    expect(submit).toBeDisabled()
+    fireEvent.change(screen.getByRole("textbox", { name: "New message" }), { target: { value: "Ready" } })
+    expect(submit).toBeEnabled()
   })
 
   it("mounts with a loading status while messages load", () => {
@@ -106,6 +119,18 @@ describe("Chat", () => {
     expect(
       screen.getByText("Hello, everyone!").closest("[data-slot='bubble']")
     ).toHaveAttribute("data-variant", "default")
+  })
+
+  it("offers edit and delete actions only for persisted messages owned by the current user", async () => {
+    render(<Chat {...chatProps} isError={false} isPending={false} onRetry={vi.fn()} messages={[
+      { id: 1, userId: 1, text: "Mine", createdAt: "2026-08-12T10:00:00.000Z", updatedAt: "2026-08-12T10:00:00.000Z", deletedAt: null, user: currentUser },
+      { id: 2, userId: 2, text: "Theirs", createdAt: "2026-08-12T10:01:00.000Z", updatedAt: "2026-08-12T10:01:00.000Z", deletedAt: null, user: { id: 2, firstName: "Ada", lastName: "Lovelace", username: "ada" } },
+    ]} />)
+
+    expect(screen.getAllByRole("button", { name: "Message actions" })).toHaveLength(1)
+    fireEvent.click(screen.getByRole("button", { name: "Message actions" }))
+    expect(await screen.findByRole("button", { name: "Edit message" })).toBeInTheDocument()
+    expect(screen.getByRole("button", { name: "Delete message" })).toBeInTheDocument()
   })
 
   it("announces optimistic sending and offers a retry for a failed message", () => {

@@ -18,7 +18,13 @@ Il formato e' ispirato a [Keep a Changelog](https://keepachangelog.com/it/1.1.0/
   stati di invio/riprova, identita' dell'utente autenticato e autori reali nelle
   bubble.
 
+- Azioni frontend per modifica ed eliminazione dei messaggi propri, con popover,
+  dialog di conferma/modifica, notifiche persistenti e controlli accessibili.
+
 ### Changed
+
+- Il submit del form di invio resta disabilitato quando il messaggio e' vuoto o
+  contiene soltanto spazi.
 
 - Inizializzato un unico repository Git nella root del monorepo; rimossi i repository Git annidati di backend e frontend.
 

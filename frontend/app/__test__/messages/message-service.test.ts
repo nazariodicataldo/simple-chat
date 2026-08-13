@@ -1,10 +1,10 @@
 import { describe, expect, it, vi } from "vitest"
 
-const { get } = vi.hoisted(() => ({ get: vi.fn() }))
+const { get, put, del } = vi.hoisted(() => ({ get: vi.fn(), put: vi.fn(), del: vi.fn() }))
 
-vi.mock("@/lib/http", () => ({ http: { get } }))
+vi.mock("@/lib/http", () => ({ http: { get, put, delete: del } }))
 
-import { listMessages } from "@/app/features/messages/message.service"
+import { deleteMessage, listMessages, updateMessage } from "@/app/features/messages/message.service"
 
 describe("listMessages", () => {
   it("returns the Laravel envelope and sends the cursor query params", async () => {
@@ -27,5 +27,22 @@ describe("listMessages", () => {
     expect(get).toHaveBeenCalledWith("/api/messages", {
       params: { cursor: "current-cursor" },
     })
+  })
+})
+
+describe("message mutations", () => {
+  it("updates a message through its public HTTP contract", async () => {
+    const message = { id: 21, text: "Updated message" }
+    put.mockResolvedValue({ data: { data: message } })
+
+    await expect(updateMessage(21, { text: "Updated message" })).resolves.toEqual(message)
+    expect(put).toHaveBeenCalledWith("/api/messages/21", { text: "Updated message" })
+  })
+
+  it("deletes a message through its public HTTP contract", async () => {
+    del.mockResolvedValue({ status: 204 })
+
+    await expect(deleteMessage(21)).resolves.toBeUndefined()
+    expect(del).toHaveBeenCalledWith("/api/messages/21")
   })
 })
