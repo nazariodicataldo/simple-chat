@@ -2,6 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Events\MessageCreated;
+use App\Events\MessageDeleted;
+use App\Events\MessageUpdated;
 use App\Http\Requests\MessageRequest;
 use App\Http\Resources\MessageResource;
 use App\Models\Message;
@@ -37,6 +40,10 @@ class MessageController extends Controller
             'user_id' => $request->user()->id,
         ]);
 
+        MessageCreated::dispatch(
+            Message::with('user')->findOrFail($message->id),
+        );
+
         return self::apiResponse(
             success: true,
             dataOrErrors: new MessageResource($message),
@@ -58,11 +65,17 @@ class MessageController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(MessageRequest $request, Message $message): JsonResponse
-    {
+    public function update(
+        MessageRequest $request,
+        Message $message,
+    ): JsonResponse {
         $this->authorize('update', $message);
 
         $message->update($request->validated());
+
+        MessageUpdated::dispatch(
+            Message::with('user')->findOrFail($message->id),
+        );
 
         return self::apiResponse(
             success: true,
@@ -78,6 +91,8 @@ class MessageController extends Controller
         $this->authorize('delete', $message);
 
         $message->delete();
+
+        MessageDeleted::dispatch($message->id);
 
         return response()->noContent();
     }

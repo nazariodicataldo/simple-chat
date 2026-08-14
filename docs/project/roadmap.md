@@ -10,7 +10,7 @@ Bootstrap Laravel e Next.js, PostgreSQL, Sanctum, messaggi (model/migration/API/
 
 ## Milestone 2 — Real-time diretto
 
-`MessageSent`, `ShouldBroadcastNow`, private channel e autorizzazione, Reverb, Echo, validazione Zod, deduplicazione e cleanup listener. **DoD:** due browser autenticati comunicano senza refresh.
+`MessageCreated`, `MessageUpdated`, `MessageDeleted`, `ShouldBroadcastNow`, private channel e autorizzazione, Reverb, Echo, validazione Zod, deduplicazione e cleanup listener. **DoD:** due browser autenticati comunicano senza refresh.
 
 ## Milestone 3 — Redis e queue
 

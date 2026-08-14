@@ -1,10 +1,10 @@
 # Stato corrente
 
-- **Milestone corrente:** Milestone 1 — Chat HTTP autenticata
-- **Ultimo task completato:** M1-011 — Completare CRUD messaggi lato frontend.
+- **Milestone corrente:** Milestone 2 — Real-time diretto con Reverb ed Echo
+- **Ultimo task completato:** M2-001 — Emettere eventi broadcast dei messaggi.
 - **Task attivo:** nessuno.
-- **Prossimo task suggerito:** chiudere la Milestone 1.
-- **Ultimo aggiornamento:** 2026-08-13.
+- **Prossimo task suggerito:** M2-002 — Autorizzare il canale privato chat.
+- **Ultimo aggiornamento:** 2026-08-14.
 
 ## Funzionalita' esistenti
 
@@ -22,6 +22,10 @@
   e riuso delle mutation esistenti. Il pulsante create resta disabilitato con
   testo trim-vuoto. I test, lint e typecheck sono riusciti nel sandbox; la build
   Next.js e' riuscita nell'ambiente locale dello sviluppatore.
+- M2-001 ha aggiunto gli eventi Laravel `MessageCreated`, `MessageUpdated` e
+  `MessageDeleted` con `ShouldBroadcastNow`, payload espliciti sul canale
+  privato `chat` e feature test con broadcaster fake; suite Pest, Pint e
+  PHPStan sono verificati localmente su PHP 8.5 Lerd.
 - Lerd configura PostgreSQL, Redis e Mailpit locali. Non sono ancora implementati/documentati chat completa, Reverb, queue, Docker o CI.
 
 ## Test esistenti
@@ -59,3 +63,4 @@
 - M1-006, 2026-08-10: `composer test` riuscito (13 test, 61 assertion); PHPStan con `--memory-limit=512M` riuscito (0 errori); Pint sui file modificati riuscito. Pint completo segnala soltanto `database/seeders/DatabaseSeeder.php`, file preesistente fuori scope.
 - M1-007, 2026-08-10: `composer test` riuscito (13 test, 87 assertion); PHPStan con `--memory-limit=512M` riuscito (0 errori); Pint sui file modificati riuscito. Pint completo segnala soltanto `database/seeders/DatabaseSeeder.php`, file preesistente fuori scope.
 - M1-008, 2026-08-10: verifica locale PHP 8.5 Lerd riuscita per `composer test` (20 test, 140 assertion) e PHPStan (34/34, nessun errore); Pint completo riuscito nel sandbox; smoke Postman Sanctum cookie/CSRF riuscito. Smoke browser rinviato al prossimo task frontend per decisione esplicita.
+- M2-001, 2026-08-14: verifica locale PHP 8.5 Lerd riuscita per `composer test` (25 test, 158 assertion, inclusi i cinque `MessageBroadcastingTest`), `./vendor/bin/pint --test` e `./vendor/bin/phpstan analyse --memory-limit=512M` (0 errori).

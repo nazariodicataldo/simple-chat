@@ -31,5 +31,5 @@ I comandi seguenti sono rilevati nel repository ma non sono ancora verificati co
 - [Roadmap](docs/project/roadmap.md)
 - [Task](docs/tasks/README.md)
 - [Decisioni (ADR)](docs/decisions/README.md)
+- [Learning Mode](docs/learning/README.md)
 - [Changelog](CHANGELOG.md)
-
