@@ -1,10 +1,10 @@
 # Stato corrente
 
 - **Milestone corrente:** Milestone 2 — Real-time diretto con Reverb ed Echo
-- **Ultimo task completato:** M2-001 — Emettere eventi broadcast dei messaggi.
+- **Ultimo task completato:** M2-002 — Autorizzare il canale privato chat.
 - **Task attivo:** nessuno.
-- **Prossimo task suggerito:** M2-002 — Autorizzare il canale privato chat.
-- **Ultimo aggiornamento:** 2026-08-14.
+- **Prossimo task suggerito:** M2-003 — Configurare Reverb diretto.
+- **Ultimo aggiornamento:** 2026-08-15.
 
 ## Funzionalita' esistenti
 
@@ -26,6 +26,14 @@
   `MessageDeleted` con `ShouldBroadcastNow`, payload espliciti sul canale
   privato `chat` e feature test con broadcaster fake; suite Pest, Pint e
   PHPStan sono verificati localmente su PHP 8.5 Lerd.
+- M2-002 registra il canale privato `chat` e protegge l'endpoint Laravel
+  `/broadcasting/auth` con `web` e `auth:sanctum`; include feature test per
+  autorizzazione, rifiuto dell'ospite, canale privato non registrato e preflight
+  CORS. Dopo il clear della route cache, CORS e il rifiuto del canale non
+  registrato sono verificati localmente; la risposta guest ha evidenziato il
+  redirect predefinito verso una route `login` assente. Il bootstrap non
+  reindirizza gli ospiti e la verifica manuale Postman senza autenticazione ha
+  confermato `401`. La firma Pusher/Reverb sara' verificata in M2-003.
 - Lerd configura PostgreSQL, Redis e Mailpit locali. Non sono ancora implementati/documentati chat completa, Reverb, queue, Docker o CI.
 
 ## Test esistenti
@@ -39,8 +47,8 @@
 
 ## Problemi conosciuti
 
-- Git e' ora inizializzato nella root e non ci sono repository annidati. L'intero monorepo e' ancora non tracciato, quindi richiede una revisione intenzionale prima del primo staging/commit.
-- Il repository e' ancora interamente non tracciato dopo l'inizializzazione; serve una revisione intenzionale prima del primo staging/commit.
+- Git e' inizializzato nella root e non ci sono repository annidati; ogni
+  modifica del task va riesaminata nel diff prima dello staging.
 - Il sandbox dell'agente non puo' raggiungere il D-Bus della sessione Lerd dello sviluppatore. I test locali Lerd sono comunque verificabili dallo sviluppatore e vanno riportati con output completo.
 - Il sandbox non espone `composer`; per M1-003 i controlli backend non erano avviabili (exit 127).
 - PHPStan richiede il limite CLI `--memory-limit=512M` nell’ambiente locale dello sviluppatore.

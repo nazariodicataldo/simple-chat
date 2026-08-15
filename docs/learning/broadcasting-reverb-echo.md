@@ -15,6 +15,73 @@ backend ai client; non sostituisce PostgreSQL, il CRUD HTTP o le policy.
 - Il canale privato e la sua autorizzazione restano responsabilita' del server:
   il client puo' chiedere di iscriversi, ma non decide da solo se puo' farlo.
 
+## Il canale privato della chat
+
+Un canale pubblico lascia entrare chiunque conosca il suo nome: e' utile, per
+esempio, per un contatore pubblico. La chat contiene invece messaggi di utenti
+autenticati, quindi usa un canale privato. `PrivateChannel('chat')` negli eventi
+produce il nome sul filo `private-chat`; per questo il client chiedera' di
+autorizzare proprio `private-chat`, non `chat`.
+
+Laravel registra la regola server-side in `routes/channels.php`:
+
+```php
+Broadcast::channel('chat', fn (User $user): bool => true, ['guards' => ['sanctum']]);
+```
+
+La callback riceve un `User` solo dopo che Sanctum ha identificato la richiesta.
+Qui restituisce `true` perche' esiste una sola chat di gruppo e tutti gli utenti
+autenticati hanno lo stesso diritto di accesso. Non e' una scelta del frontend:
+un client puo' inviare una richiesta con `channel_name=private-chat`, ma Laravel
+verifica comunque sessione e regola prima di restituire l'autorizzazione.
+
+La configurazione minima e' caricare `routes/channels.php` dal bootstrap Laravel
+e assegnare `web` e `auth:sanctum` alla route `POST /broadcasting/auth` generata
+da Laravel. `web` rende disponibile la sessione cookie della SPA; `auth:sanctum`
+fa ricevere `401 Unauthorized` a un ospite. L'opzione `guards` della regola
+mantiene anche la risoluzione dell'utente del canale ancorata a Sanctum. Reverb
+ed Echo non servono per controllare questo confine: saranno configurati nei
+task dedicati.
+
+La SPA raggiunge questo endpoint da un'origine diversa, quindi `cors.php` deve
+includere anche `broadcasting/auth`, mantenere l'origine SPA esplicita e
+`supports_credentials=true`. Il browser puo' cosi' inviare cookie di sessione
+solo dall'origine fidata, dopo una preflight `OPTIONS` riuscita.
+
+Le richieste che modificano i Message restano protette da XSRF: l'istanza Axios
+esistente puo' leggere il cookie `XSRF-TOKEN` e inviare l'header
+`X-XSRF-TOKEN`. La route broadcasting standard di Laravel e' invece esentata
+dal controllo CSRF. L'header puo' ancora essere inviato dal client condiviso,
+ma non viene convalidato da quella route: il confine di sicurezza e' la
+sessione Sanctum insieme alla regola `Broadcast::channel`, non il token CSRF.
+
+## Verifica dell'autorizzazione
+
+I feature test inviano richieste HTTP a `POST /broadcasting/auth` con
+`channel_name=private-chat` e un `socket_id`: con un utente Sanctum si aspettano
+una risposta di autorizzazione positiva, senza sessione si aspettano `401`.
+Questo controlla il percorso pubblico che usera' Echo, non soltanto la callback
+PHP isolata. Una preflight CORS da `http://app.simple-chat.test:3000` deve
+restituire l'origine e le credenziali consentite. Per una verifica manuale,
+dopo login SPA invia la stessa richiesta con il cookie di sessione; in una
+sessione privata senza cookie deve rispondere `401`. La forma di autorizzazione
+Pusher/Reverb sara' verificata quando Reverb verra' configurato nel task
+dedicato.
+
+Un errore comune e' registrare `Broadcast::channel('private-chat', ...)`.
+Laravel rimuove il prefisso tecnico `private-` prima di cercare la regola, quindi
+la regola corretta e' `chat`; usare il nome completo porta a un rifiuto `403`
+anche per un utente autenticato. Un altro errore e' omettere `auth:sanctum` dalla
+route: allora l'endpoint puo' raggiungere il broadcaster senza il confine
+esplicito che la chat richiede.
+
+In produzione restano gli stessi principi, ma la configurazione deve usare solo
+origini SPA fidate, HTTPS e cookie `Secure`/`SameSite` appropriati. Se in futuro
+un'app mobile usa token invece della sessione cookie, Sanctum puo' verificare il
+token nella stessa route; non bisogna trasferire la decisione di accesso al
+client. Regole per stanze o membership richiederebbero una callback che controlli
+quel dato nel database, non sono parte di questa chat di gruppo.
+
 ## Gli eventi del messaggio
 
 Il controller emette l'evento soltanto dopo che la mutazione e' riuscita:
@@ -118,10 +185,15 @@ Prima di vedere il task Echo, scrivi su carta quale cache frontend dovrebbe
 aggiornare ciascun evento e perche' un `MessageDeleted` non ha bisogno del testo
 del messaggio. Poi confronta la risposta con la forma dei payload qui sopra.
 
+Poi rispondi: perche' la regola e' `chat` mentre la richiesta del client e'
+`private-chat`? Infine immagina una chat con stanze: quale controllo server-side
+aggiungeresti alla callback prima di restituire `true`?
+
 ## Documentazione ufficiale
 
 Il progetto usa Laravel `13.24.0` (bloccato in `composer.lock`). La guida
 compatibile da consultare e' la documentazione Laravel 13 su
 [Broadcasting](https://laravel.com/docs/13.x/broadcasting): in particolare
-eventi broadcast, `PrivateChannel`, payload `broadcastWith` e
-`ShouldBroadcastNow`.
+eventi broadcast, `PrivateChannel`, autorizzazione dei canali, payload
+`broadcastWith` e `ShouldBroadcastNow`. Per il guard della SPA consulta anche
+[Laravel Sanctum 13](https://laravel.com/docs/13.x/sanctum).
