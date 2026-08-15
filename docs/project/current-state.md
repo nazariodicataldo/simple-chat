@@ -1,9 +1,9 @@
 # Stato corrente
 
 - **Milestone corrente:** Milestone 2 — Real-time diretto con Reverb ed Echo
-- **Ultimo task completato:** M2-002 — Autorizzare il canale privato chat.
+- **Ultimo task completato:** M2-003 — Configurare Reverb diretto.
 - **Task attivo:** nessuno.
-- **Prossimo task suggerito:** M2-003 — Configurare Reverb diretto.
+- **Prossimo task suggerito:** M2-004 — Configurare Echo frontend.
 - **Ultimo aggiornamento:** 2026-08-15.
 
 ## Funzionalita' esistenti
@@ -33,8 +33,16 @@
   registrato sono verificati localmente; la risposta guest ha evidenziato il
   redirect predefinito verso una route `login` assente. Il bootstrap non
   reindirizza gli ospiti e la verifica manuale Postman senza autenticazione ha
-  confermato `401`. La firma Pusher/Reverb sara' verificata in M2-003.
-- Lerd configura PostgreSQL, Redis e Mailpit locali. Non sono ancora implementati/documentati chat completa, Reverb, queue, Docker o CI.
+  confermato `401`. La firma Pusher/Reverb e' ora coperta dal feature test
+  M2-003 eseguito nell'ambiente locale Lerd.
+- M2-003 ha aggiunto Reverb diretto e il trasporto Pusher al backend, con
+  `BROADCAST_CONNECTION=reverb`, configurazioni pubblicate e variabili di
+  esempio senza credenziali reali. Host e porta del server sono ora distinti da
+  quelli del broadcaster e le origini WebSocket sono configurabili. Il feature
+  test controlla la firma Pusher/Reverb con credenziali fittizie disponibili
+  prima del bootstrap soltanto per i test Channels.
+- Lerd configura PostgreSQL, Redis e Mailpit locali. Non sono ancora
+  implementati/documentati chat completa, Echo, queue, Docker o CI.
 
 ## Test esistenti
 
@@ -44,6 +52,11 @@
 - Frontend, M1-010: `pnpm test` riuscito con 10 file e 32 test; lint, typecheck e build riusciti. Smoke browser optimistic/infinite scroll da verificare localmente.
 - Frontend: lint e typecheck verificati con Node `v24.19.0` e pnpm `11.20.0`; lint segnala un warning ESLint esistente ma nessun errore. Build Next.js `16.2.6` verificata localmente dallo sviluppatore: compilazione, TypeScript e generazione delle pagine statiche riusciti.
 - Backend, M1-003: suite Pest (3 test, 10 assertion), Pint completo (28 file) e PHPStan con `--memory-limit=512M` verificati localmente dallo sviluppatore.
+- Backend, M2-003: prima della revisione `composer test` era riuscito (28
+  test, 170 assertion, 1 skipped), con Pint e PHPStan a 0 errori e smoke Reverb
+  riuscito. Dopo la revisione `composer test` e' riuscito con 29 test e 172
+  assertion, `./vendor/bin/pint --test` e
+  `./vendor/bin/phpstan analyse --memory-limit=512M` sono riusciti senza errori.
 
 ## Problemi conosciuti
 
@@ -55,6 +68,12 @@
 - Nel sandbox corrente PHP è `8.3.6`, mentre le dipendenze installate richiedono PHP `>= 8.4.1`; PHPStan non può quindi avviarsi. `composer` non è installato nel PATH del sandbox, perciò Pest non può essere eseguito qui.
 - M1-008: Lerd non è avviabile nel sandbox perché non può raggiungere il D-Bus della sessione dello sviluppatore. Le verifiche locali di Pest e PHPStan e Pint completo nel sandbox sono riusciti. Lo smoke browser è rinviato al prossimo task frontend per decisione esplicita.
 - M1-009: lint, typecheck, build e 28 test frontend sono riusciti; smoke browser Sanctum per login, register, logout, credenziali non valide, email già registrata ed errore sessione riuscito.
+- M2-003: il post-script Composer `php artisan boost:update` fallisce perche'
+  Boost non e' configurato, dopo che Composer ha gia' installato e bloccato le
+  dipendenze Reverb/Pusher.
+- M2-003: nel sandbox il wrapper PHP 8.5 non puo' avviare Lerd senza accesso al
+  D-Bus; i controlli backend sono stati eseguiti tramite il runtime locale
+  autorizzato.
 
 ## Decisioni aperte
 

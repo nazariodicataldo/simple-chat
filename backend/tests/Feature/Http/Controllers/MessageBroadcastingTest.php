@@ -51,7 +51,7 @@ it(
                     $eventName === MessageCreated::class;
             });
 
-        Broadcast::extend('recording', fn() => $broadcaster);
+        Broadcast::extend('recording', fn () => $broadcaster);
         config([
             'broadcasting.default' => 'recording',
             'broadcasting.connections.recording' => ['driver' => 'recording'],
@@ -110,7 +110,7 @@ it(
                     $eventName === MessageUpdated::class;
             });
 
-        Broadcast::extend('recording', fn() => $broadcaster);
+        Broadcast::extend('recording', fn () => $broadcaster);
         config([
             'broadcasting.default' => 'recording',
             'broadcasting.connections.recording' => ['driver' => 'recording'],
@@ -159,7 +159,7 @@ it('broadcasts the identifier of a deleted message', function () {
                 $payload['messageId'] === $message->id;
         });
 
-    Broadcast::extend('recording', fn() => $broadcaster);
+    Broadcast::extend('recording', fn () => $broadcaster);
     config([
         'broadcasting.default' => 'recording',
         'broadcasting.connections.recording' => ['driver' => 'recording'],

@@ -2,34 +2,28 @@
 
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\Concerns\UsesReverbForChannelTests;
 
-uses(RefreshDatabase::class);
+uses(RefreshDatabase::class, UsesReverbForChannelTests::class);
 
-it('authorizes an authenticated Sanctum user for the private chat channel', function () {
-    config([
-        'broadcasting.default' => 'redis',
-        'broadcasting.connections.redis' => ['driver' => 'redis'],
-    ]);
-
+it('signs an authenticated Sanctum user for the private chat channel through Reverb', function () {
     $user = User::factory()->create();
 
-    $this->actingAs($user, 'sanctum')
+    $response = $this->actingAs($user, 'sanctum')
         ->post('/broadcasting/auth', [
             'channel_name' => 'private-chat',
             'socket_id' => '1234.5678',
-        ])
+        ]);
+
+    $response
         ->assertOk()
-        ->assertContent('true');
-})->skip(
-    'The Pusher/Reverb authorization response format is verified in M2-003 after configuring the real driver.',
-);
+        ->assertJsonPath(
+            'auth',
+            'test-reverb-key:8ee48bf7ba4da3e15f5c50713bf391fb0039f178eeebde3cddfe522beb9d9986',
+        );
+});
 
 it('rejects an authenticated Sanctum user from an unregistered private channel', function () {
-    config([
-        'broadcasting.default' => 'redis',
-        'broadcasting.connections.redis' => ['driver' => 'redis'],
-    ]);
-
     $user = User::factory()->create();
 
     $this->actingAs($user, 'sanctum')

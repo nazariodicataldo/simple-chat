@@ -15,6 +15,86 @@ backend ai client; non sostituisce PostgreSQL, il CRUD HTTP o le policy.
 - Il canale privato e la sua autorizzazione restano responsabilita' del server:
   il client puo' chiedere di iscriversi, ma non decide da solo se puo' farlo.
 
+## Reverb: il trasporto WebSocket locale
+
+Un evento Laravel sa _che cosa_ notificare, ma non puo' consegnarlo da solo a
+un browser gia' aperto. Laravel Reverb e' il server WebSocket che riceve il
+broadcast dal backend e lo inoltra ai client connessi. In questa milestone usa
+il protocollo compatibile con Pusher: non si sta usando il servizio Pusher, ma
+la libreria PHP che Laravel usa per parlare quel protocollo con Reverb locale.
+
+La configurazione minima e' tutta nel backend:
+
+```dotenv
+BROADCAST_CONNECTION=reverb
+REVERB_APP_ID=
+REVERB_APP_KEY=
+REVERB_APP_SECRET=
+REVERB_HOST=localhost
+REVERB_PORT=8080
+REVERB_SCHEME=http
+REVERB_SERVER_HOST=0.0.0.0
+REVERB_SERVER_PORT=8080
+REVERB_ALLOWED_ORIGINS=app.simple-chat.test
+```
+
+`BROADCAST_CONNECTION=reverb` seleziona la connessione `reverb` in
+`config/broadcasting.php`. Quella connessione legge ID, chiave, segreto, host,
+porta e schema dalle variabili d'ambiente; `config/reverb.php` usa le stesse
+credenziali per riconoscere l'applicazione che puo' connettersi al server
+Reverb. `REVERB_HOST` e `REVERB_PORT` sono l'indirizzo di destinazione usato
+dal broadcaster Laravel (e dal client Echo nel task successivo).
+
+Il processo `php artisan reverb:start` ha invece il proprio indirizzo di
+ascolto: `REVERB_SERVER_HOST` e `REVERB_SERVER_PORT`. In locale il server puo'
+ascoltare su `0.0.0.0:8080` mentre broadcaster e browser si collegano a
+`localhost:8080`: `0.0.0.0` serve solo ad ascoltare, non e' una destinazione.
+Se cambi la porta locale, aggiorna sia `REVERB_PORT` sia
+`REVERB_SERVER_PORT`, cosi' entrambi puntano allo stesso processo.
+
+`REVERB_ALLOWED_ORIGINS` elenca, separati da virgola, i soli host browser che
+possono aprire il WebSocket, per esempio `app.simple-chat.test`. Non contiene
+URL completi, porte o segreti: Reverb confronta l'host dell'header `Origin`.
+Questo controllo limita chi puo' aprire una connessione; l'autorizzazione del
+canale privato resta comunque sul server tramite Sanctum.
+
+La `REVERB_APP_KEY` identifica pubblicamente l'applicazione nel client che
+sara' configurato nel task Echo. `REVERB_APP_SECRET`, invece, firma le
+richieste del broadcaster ed e' solo backend: non va mai inserito in una
+variabile `NEXT_PUBLIC_*`, nel frontend o in un file di esempio con un valore
+reale. Anche ID e chiave qui sono vuoti intenzionalmente: l'installer crea
+valori locali nel file `.env`, che e' ignorato da Git, mentre ogni ambiente
+deve usare le proprie credenziali.
+
+La prova di cablaggio e' avviare il server con `php artisan reverb:start` e
+controllare che ascolti su `REVERB_SERVER_HOST:REVERB_SERVER_PORT`. Il feature
+test dell'endpoint `/broadcasting/auth` avvia solo quel caso con Reverb e
+credenziali fittizie, quindi verifica una firma Pusher nota: non richiede un
+worker, Redis, Horizon o un server WebSocket attivo. Il suo trait di test rende le
+credenziali disponibili prima del bootstrap, perche' e' allora che Laravel
+registra il canale, senza trasformare in chiamate HTTP verso Reverb gli altri
+test. La ricezione nel browser sara' verificata quando Echo verra' configurato.
+
+Un errore comune e' usare `REVERB_HOST=0.0.0.0` come destinazione del
+broadcaster. `0.0.0.0` e' utile come indirizzo di ascolto del server, ma non e'
+un host a cui il client deve connettersi: in locale `localhost` e' la scelta
+esplicita dell'esempio. Un altro errore e' esporre il segreto perche' la chiave
+app e' pubblica: hanno ruoli diversi e il segreto resta sul server.
+
+In produzione il principio non cambia, ma Reverb deve ricevere un hostname
+reale, HTTPS/TLS e un `REVERB_ALLOWED_ORIGINS` ristretto alle SPA fidate;
+valori e segreti vanno gestiti dal sistema di deploy, non versionati. Il
+processo Reverb va inoltre mantenuto in esecuzione dal supervisore
+dell'ambiente. Queste sono esigenze operative future, non introducono queue,
+Redis o Horizon in questa milestone.
+
+### Esercizio Reverb
+
+Prima di configurare Echo, spiega con parole tue perche' la chiave puo' essere
+letta dal client mentre il segreto no. Poi cambia `REVERB_PORT` e
+`REVERB_SERVER_PORT` nel tuo `.env` locale e indica quali due processi devono
+usare lo stesso valore perche' il broadcast arrivi al server WebSocket.
+
 ## Il canale privato della chat
 
 Un canale pubblico lascia entrare chiunque conosca il suo nome: e' utile, per
@@ -65,8 +145,7 @@ PHP isolata. Una preflight CORS da `http://app.simple-chat.test:3000` deve
 restituire l'origine e le credenziali consentite. Per una verifica manuale,
 dopo login SPA invia la stessa richiesta con il cookie di sessione; in una
 sessione privata senza cookie deve rispondere `401`. La forma di autorizzazione
-Pusher/Reverb sara' verificata quando Reverb verra' configurato nel task
-dedicato.
+Pusher/Reverb e' verificata dal feature test M2-003 con credenziali fittizie.
 
 Un errore comune e' registrare `Broadcast::channel('private-chat', ...)`.
 Laravel rimuove il prefisso tecnico `private-` prima di cercare la regola, quindi
@@ -195,5 +274,6 @@ Il progetto usa Laravel `13.24.0` (bloccato in `composer.lock`). La guida
 compatibile da consultare e' la documentazione Laravel 13 su
 [Broadcasting](https://laravel.com/docs/13.x/broadcasting): in particolare
 eventi broadcast, `PrivateChannel`, autorizzazione dei canali, payload
-`broadcastWith` e `ShouldBroadcastNow`. Per il guard della SPA consulta anche
-[Laravel Sanctum 13](https://laravel.com/docs/13.x/sanctum).
+`broadcastWith` e `ShouldBroadcastNow`; per il server locale consulta anche
+[Laravel Reverb 13](https://laravel.com/docs/13.x/reverb). Per il guard della
+SPA consulta [Laravel Sanctum 13](https://laravel.com/docs/13.x/sanctum).
