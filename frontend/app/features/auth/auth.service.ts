@@ -1,6 +1,6 @@
 import type { AxiosRequestConfig } from "axios"
 
-import { ensureCsrf, http } from "@/lib/http"
+import { http, withCsrf } from "@/lib/http"
 
 import { AuthApiError } from "./auth.type"
 import type {
@@ -38,26 +38,16 @@ function getErrorResponse(error: unknown) {
   return (error as { response?: { status?: number; data?: unknown } }).response
 }
 
-async function withCsrf<T>(request: () => Promise<T>): Promise<T> {
+async function withAuthCsrf<T>(request: () => Promise<T>): Promise<T> {
   try {
-    await ensureCsrf()
-    return await request()
+    return await withCsrf(request)
   } catch (error) {
-    if (getErrorResponse(error)?.status !== 419) {
-      throw toAuthError(error)
-    }
-
-    try {
-      await ensureCsrf(true)
-      return await request()
-    } catch (retryError) {
-      throw toAuthError(retryError)
-    }
+    throw toAuthError(error)
   }
 }
 
 async function requestAuth<T>(config: AxiosRequestConfig): Promise<T> {
-  return withCsrf(async () => {
+  return withAuthCsrf(async () => {
     const response = await http.request<ApiResponse<T>>(config)
     return response.data.data
   })
@@ -87,7 +77,7 @@ export function register(input: RegisterInput) {
 }
 
 export function logout() {
-  return withCsrf(async () => {
+  return withAuthCsrf(async () => {
     await http.post("/api/logout")
   })
 }

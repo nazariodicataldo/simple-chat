@@ -43,11 +43,13 @@ REVERB_ALLOWED_ORIGINS=app.simple-chat.test
 porta e schema dalle variabili d'ambiente; `config/reverb.php` usa le stesse
 credenziali per riconoscere l'applicazione che puo' connettersi al server
 Reverb. `REVERB_HOST` e `REVERB_PORT` sono l'indirizzo di destinazione usato
-dal broadcaster Laravel (e dal client Echo nel task successivo).
+dal broadcaster Laravel. Non sono automaticamente l'indirizzo del browser:
+Echo ha le proprie variabili pubbliche, perche' puo' raggiungere Reverb tramite
+il proxy HTTPS.
 
 Il processo `php artisan reverb:start` ha invece il proprio indirizzo di
 ascolto: `REVERB_SERVER_HOST` e `REVERB_SERVER_PORT`. In locale il server puo'
-ascoltare su `0.0.0.0:8080` mentre broadcaster e browser si collegano a
+ascoltare su `0.0.0.0:8080` mentre il broadcaster si collega a
 `localhost:8080`: `0.0.0.0` serve solo ad ascoltare, non e' una destinazione.
 Se cambi la porta locale, aggiorna sia `REVERB_PORT` sia
 `REVERB_SERVER_PORT`, cosi' entrambi puntano allo stesso processo.
@@ -95,6 +97,97 @@ letta dal client mentre il segreto no. Poi cambia `REVERB_PORT` e
 `REVERB_SERVER_PORT` nel tuo `.env` locale e indica quali due processi devono
 usare lo stesso valore perche' il broadcast arrivi al server WebSocket.
 
+## Echo nel browser
+
+Echo e' il piccolo client JavaScript che evita di parlare direttamente il
+protocollo Pusher in ogni componente. Apre il WebSocket dal browser, si iscrive
+ai canali Laravel e offre metodi leggibili come `private('chat')` e `listen`.
+In questo progetto Reverb e' il server WebSocket self-hosted: usa il protocollo
+Pusher, ma non e' il servizio Pusher Cloud. Per questo il frontend installa sia
+`laravel-echo` sia `pusher-js` e configura `broadcaster: 'reverb'`.
+
+Il modulo `frontend/lib/echo.ts` e' volutamente solo browser: importarlo sul
+server non crea una connessione e `getEcho()` costruisce il client soltanto al
+primo uso nel browser. L'istanza viene conservata su `window`, quindi un reload
+del modulo durante l'HMR di Next.js non apre una seconda connessione. M2-004
+non importa il modulo in pagine o componenti: la sottoscrizione e il cleanup
+arriveranno nei task successivi.
+
+Il profilo locale predefinito usa il proxy TLS di Lerd. La configurazione
+minima del file `.env.local` frontend e' quindi questa:
+
+```dotenv
+NEXT_PUBLIC_BACKEND_URL=https://api.simple-chat.test
+FRONTEND_URL=https://app.simple-chat.test:3000
+NEXT_PUBLIC_REVERB_APP_KEY=la-stessa-REVERB_APP_KEY-del-backend
+NEXT_PUBLIC_REVERB_HOST=api.simple-chat.test
+NEXT_PUBLIC_REVERB_PORT=443
+NEXT_PUBLIC_REVERB_SCHEME=https
+```
+
+Il backend espone `APP_URL=https://api.simple-chat.test` e consente
+`https://app.simple-chat.test:3000` in CORS. Il suo broadcaster continua invece
+a usare `REVERB_HOST=localhost`, `REVERB_PORT=8080` e `REVERB_SCHEME=http` per
+il percorso interno verso Reverb: non e' un endpoint aperto al browser.
+
+`NEXT_PUBLIC_` rende un valore disponibile nel bundle browser. E' corretto per
+la app key pubblica e per host, porta e schema: servono al browser per sapere a
+quale endpoint WebSocket connettersi. Non e' mai corretto per
+`REVERB_APP_SECRET`, password, cookie, token o altri segreti. Anche
+`REVERB_APP_ID` resta escluso da questo client: non e' necessario per aprire la
+connessione Echo e non deve essere aggiunto "per completezza".
+
+### Autorizzazione canale con Sanctum e Axios
+
+Quando Echo prova a entrare in `private-chat`, prima invia al backend il socket
+ID e il nome del canale. Con `pusher-js` 8 questa operazione e' configurata con
+`channelAuthorization.customHandler`: riceve `{ socketId, channelName }` e un
+callback. Il custom handler di questo progetto usa `http`, la stessa istanza
+Axios della chat HTTP. Quell'istanza invia cookie (`withCredentials`)
+e il token XSRF (`withXSRFToken`) secondo le regole gia' adottate dalla SPA.
+
+Il custom handler passa la `POST /broadcasting/auth` tramite `withCsrf`: il helper
+assicura il cookie CSRF e ritenta una volta dopo un eventuale `419`. La route
+broadcasting Laravel resta CSRF-exempt; la protezione dell'accesso al canale e'
+comunque la sessione Sanctum e la regola server-side `Broadcast::channel`. Il
+riuso e' utile perche' mantiene una sola configurazione Axios cross-origin e
+una sola gestione del ciclo del cookie, invece di lasciare che il trasporto HTTP
+di default di Pusher usi una configurazione non adatta a questa SPA.
+
+Il callback del custom handler riceve `(error, data)`: al
+successo passa `null` e la risposta firmata del backend; al fallimento passa
+l'errore senza registrare cookie, token o dati dell'utente nel modulo.
+
+### Come verificare Echo
+
+I test unitari mockano Echo, Pusher e il client HTTP: controllano configurazione
+Reverb esplicita sia HTTPS sia HTTP, singleton lazy, import sicuro senza
+`window`, chiamata a `withCsrf`, payload della POST di autorizzazione e callback
+di successo o errore. Non aprono un WebSocket reale.
+
+Lo smoke manuale richiede backend, Reverb e Next.js avviati, piu' una sessione
+Sanctum autenticata. Nel browser, richiama temporaneamente `getEcho()` e prova
+la sottoscrizione a `private-chat`: DevTools deve mostrare una POST autorizzata
+senza `401` o `419` e una connessione WebSocket a Reverb. Se l'app key frontend
+non coincide con `REVERB_APP_KEY` backend, oppure se mancano cookie/CSRF prima
+della connessione, l'autorizzazione o la sottoscrizione falliranno: sono i due
+errori locali piu' comuni.
+
+Con Lerd la SPA Next deve essere avviata in HTTPS con un certificato locale
+fidato: solo cosi' puo' leggere e inviare correttamente il cookie XSRF sicuro
+e aprire `wss://api.simple-chat.test`. Non aggirare il problema disabilitando
+la verifica TLS nel browser o in Node.js. In produzione valgono gli stessi
+principi con un dominio pubblico: cambiano endpoint e certificati, non il fatto
+che secret e decisione di accesso restino server-side.
+
+### Esercizio Echo
+
+Apri DevTools dopo il login, annota `socket_id` e `channel_name` che Echo
+invierebbe al custom handler, poi spiega perche' il browser non puo' sostituire la
+firma di Laravel con una propria. Infine imposta mentalmente lo schema su
+`https`: quale valore di `forceTLS` e quale protocollo WebSocket devono
+risultare?
+
 ## Il canale privato della chat
 
 Un canale pubblico lascia entrare chiunque conosca il suo nome: e' utile, per
@@ -141,7 +234,7 @@ I feature test inviano richieste HTTP a `POST /broadcasting/auth` con
 `channel_name=private-chat` e un `socket_id`: con un utente Sanctum si aspettano
 una risposta di autorizzazione positiva, senza sessione si aspettano `401`.
 Questo controlla il percorso pubblico che usera' Echo, non soltanto la callback
-PHP isolata. Una preflight CORS da `http://app.simple-chat.test:3000` deve
+PHP isolata. Una preflight CORS da `https://app.simple-chat.test:3000` deve
 restituire l'origine e le credenziali consentite. Per una verifica manuale,
 dopo login SPA invia la stessa richiesta con il cookie di sessione; in una
 sessione privata senza cookie deve rispondere `401`. La forma di autorizzazione
@@ -270,10 +363,15 @@ aggiungeresti alla callback prima di restituire `true`?
 
 ## Documentazione ufficiale
 
-Il progetto usa Laravel `13.24.0` (bloccato in `composer.lock`). La guida
-compatibile da consultare e' la documentazione Laravel 13 su
+Il progetto usa Laravel `13.24.0` (bloccato in `composer.lock`),
+`laravel-echo` `2.4.0` e `pusher-js` `8.6.0`. La guida compatibile da
+consultare e' la documentazione Laravel 13 su
 [Broadcasting](https://laravel.com/docs/13.x/broadcasting): in particolare
-eventi broadcast, `PrivateChannel`, autorizzazione dei canali, payload
-`broadcastWith` e `ShouldBroadcastNow`; per il server locale consulta anche
-[Laravel Reverb 13](https://laravel.com/docs/13.x/reverb). Per il guard della
-SPA consulta [Laravel Sanctum 13](https://laravel.com/docs/13.x/sanctum).
+installazione client Reverb, eventi broadcast, `PrivateChannel`, autorizzazione
+dei canali, payload `broadcastWith` e `ShouldBroadcastNow`; per il server
+locale consulta anche [Laravel Reverb 13](https://laravel.com/docs/13.x/reverb).
+Per il guard della SPA consulta [Laravel Sanctum 13](https://laravel.com/docs/13.x/sanctum).
+Il repository ufficiale di [Laravel Echo](https://github.com/laravel/echo) e il
+[changelog di pusher-js](https://github.com/pusher/pusher-js/blob/master/CHANGELOG.md)
+completano il riferimento per l'API client e la firma callback del custom
+handler.

@@ -46,4 +46,26 @@ export function ensureCsrf(force = false): Promise<void> {
   return csrfRequest
 }
 
+function getErrorResponse(error: unknown) {
+  if (!error || typeof error !== "object" || !("response" in error)) {
+    return undefined
+  }
+
+  return (error as { response?: { status?: number } }).response
+}
+
+export async function withCsrf<T>(request: () => Promise<T>): Promise<T> {
+  try {
+    await ensureCsrf()
+    return await request()
+  } catch (error) {
+    if (getErrorResponse(error)?.status !== 419) {
+      throw error
+    }
+
+    await ensureCsrf(true)
+    return request()
+  }
+}
+
 export { http }

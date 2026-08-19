@@ -1,10 +1,10 @@
 # Stato corrente
 
 - **Milestone corrente:** Milestone 2 — Real-time diretto con Reverb ed Echo
-- **Ultimo task completato:** M2-003 — Configurare Reverb diretto.
+- **Ultimo task completato:** M2-004 — Configurare Echo frontend.
 - **Task attivo:** nessuno.
-- **Prossimo task suggerito:** M2-004 — Configurare Echo frontend.
-- **Ultimo aggiornamento:** 2026-08-15.
+- **Prossimo task suggerito:** M2-005 — Sottoscrivere e validare eventi Message.
+- **Ultimo aggiornamento:** 2026-08-20.
 
 ## Funzionalita' esistenti
 
@@ -41,6 +41,17 @@
   quelli del broadcaster e le origini WebSocket sono configurabili. Il feature
   test controlla la firma Pusher/Reverb con credenziali fittizie disponibili
   prima del bootstrap soltanto per i test Channels.
+- M2-004 ha installato `laravel-echo` 2.4.0 e `pusher-js` 8.6.0 e aggiunto il
+  client browser lazy `frontend/lib/echo.ts`: configura Reverb, conserva il
+  singleton attraverso HMR e autorizza `private-chat` tramite l'Axios/CSRF
+  condiviso con `channelAuthorization.customHandler`. Il modulo non e' collegato
+  alla UI; test, lint, typecheck e build sono eseguiti. Lo smoke locale
+  autenticato del 2026-08-20, con Lerd/Reverb, ha completato la sottoscrizione
+  a `private-chat`.
+- ADR 0003 fissa HTTPS/WSS come profilo locale predefinito per SPA, API e
+  browser-verso-Reverb. Il broadcaster Laravel mantiene il collegamento
+  interno HTTP su `localhost:8080` verso Reverb; questa separazione evita
+  mixed content e conserva semplice il traffico non esposto.
 - Lerd configura PostgreSQL, Redis e Mailpit locali. Non sono ancora
   implementati/documentati chat completa, Echo, queue, Docker o CI.
 
@@ -51,6 +62,11 @@
 - Frontend: Vitest configurato con jsdom e React Testing Library; M1-005 verifica chat e schema Zod con 6 test.
 - Frontend, M1-010: `pnpm test` riuscito con 10 file e 32 test; lint, typecheck e build riusciti. Smoke browser optimistic/infinite scroll da verificare localmente.
 - Frontend: lint e typecheck verificati con Node `v24.19.0` e pnpm `11.20.0`; lint segnala un warning ESLint esistente ma nessun errore. Build Next.js `16.2.6` verificata localmente dallo sviluppatore: compilazione, TypeScript e generazione delle pagine statiche riusciti.
+- Frontend, M2-004: `pnpm exec vitest run lib/echo.test.ts` (5 test), la
+  regressione `auth.service.test.ts` (9 test), lint e typecheck sono riusciti
+  nel sandbox. `pnpm build` e' riuscito localmente dallo sviluppatore con
+  Next.js `16.2.6`. Lo smoke browser autenticato del 2026-08-20 ha mostrato
+  `Subscribed to private-chat` con Lerd e Reverb attivi.
 - Backend, M1-003: suite Pest (3 test, 10 assertion), Pint completo (28 file) e PHPStan con `--memory-limit=512M` verificati localmente dallo sviluppatore.
 - Backend, M2-003: prima della revisione `composer test` era riuscito (28
   test, 170 assertion, 1 skipped), con Pint e PHPStan a 0 errori e smoke Reverb
