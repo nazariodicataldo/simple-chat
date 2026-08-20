@@ -1,13 +1,14 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
-const { mutate, updateMutate, deleteMutate, useCreateMessageMutation, useUpdateMessageMutation, useDeleteMessageMutation, useMessagesQuery } = vi.hoisted(() => ({
+const { mutate, updateMutate, deleteMutate, useCreateMessageMutation, useUpdateMessageMutation, useDeleteMessageMutation, useMessageRealtime, useMessagesQuery } = vi.hoisted(() => ({
   mutate: vi.fn(),
   updateMutate: vi.fn(),
   deleteMutate: vi.fn(),
   useCreateMessageMutation: vi.fn(),
   useUpdateMessageMutation: vi.fn(),
   useDeleteMessageMutation: vi.fn(),
+  useMessageRealtime: vi.fn(),
   useMessagesQuery: vi.fn(),
 }))
 
@@ -16,6 +17,10 @@ vi.mock("@/app/features/messages/message.queries", () => ({
   useUpdateMessageMutation,
   useDeleteMessageMutation,
   useMessagesQuery,
+}))
+
+vi.mock("@/app/features/messages/realtime/use-message-realtime", () => ({
+  useMessageRealtime,
 }))
 
 vi.mock("@/components/auth/logout-button", () => ({
@@ -48,9 +53,11 @@ describe("ChatPage", () => {
     mutate.mockReset()
     updateMutate.mockReset()
     deleteMutate.mockReset()
+    useMessageRealtime.mockReset()
     useCreateMessageMutation.mockReturnValue({ mutate })
     useUpdateMessageMutation.mockReturnValue({ mutate: updateMutate, isPending: false })
     useDeleteMessageMutation.mockReturnValue({ mutate: deleteMutate, isPending: false })
+    useMessageRealtime.mockReturnValue({ lastEvent: null })
     useMessagesQuery.mockReturnValue({
       data: { pages: [] },
       fetchNextPage: vi.fn(),
@@ -65,6 +72,12 @@ describe("ChatPage", () => {
 
   afterEach(() => {
     vi.useRealTimers()
+  })
+
+  it("mounts Message realtime without consuming its last event", () => {
+    render(<ChatPage currentUser={currentUser} />)
+
+    expect(useMessageRealtime).toHaveBeenCalledOnce()
   })
 
   it("edits an owned message without scrolling and announces success", async () => {

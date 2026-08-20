@@ -5,6 +5,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "dev:https": "export NODE_OPTIONS=--use-system-ca && pnpm exec next dev --hostname app.simple-chat.test --port 3000 --experimental-https --experimental-https-cert .cert/app.simple-chat.test.pem --experimental-https-key .cert/app.simple-chat.test-key.pem",
     "build": "next build",
     "start": "next start",
     "lint": "eslint",

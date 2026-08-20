@@ -300,6 +300,63 @@ soltanto l'autore pubblico (`id`, `firstName`, `lastName`, `username`), senza
 email o altri attributi del modello `User`. `MessageResource` continua a essere
 il contratto delle risposte HTTP e non e' stato modificato.
 
+## Ricevere eventi in modo difensivo con Echo e Zod
+
+Un evento WebSocket non e' una risposta HTTP che il componente ha appena
+richiesto: e' input arrivato da una connessione esterna. Normalmente Laravel e
+Reverb inviano il payload corretto, ma un bug di versione, un broadcaster
+configurato male oppure un client non atteso possono produrre una forma diversa.
+Per questo il browser lo considera **non fidato** finche' uno schema Zod non ne
+conferma la forma. Questa validazione e' difensiva: non sostituisce
+`auth:sanctum`, la policy o il canale privato, che restano controlli server-side.
+
+M2-005 mantiene due schemi di input separati. Create e update hanno lo stesso
+envelope `{ message: ... }`; `id` e `userId` sono interi positivi, le date sono
+ISO con offset (oppure `null`) e autore/testo sono campi obbligatori. Delete ha
+invece soltanto `{ messageId: ... }`: non deve essere forzato a contenere un
+oggetto `message` che il backend non manda. Lo schema elimina i campi extra
+prima della normalizzazione, ma non replica regole della form HTTP come il
+limite di caratteri del testo.
+
+Echo apre `private-chat` quando il codice usa `getEcho().private('chat')`. Gli
+eventi non hanno `broadcastAs()`, quindi il loro nome sul filo e' il FQCN PHP.
+Per indicare a Echo di non aggiungere il namespace predefinito, ogni listener
+inizia con un punto:
+
+```ts
+channel.listen(".App\\Events\\MessageCreated", onCreated)
+channel.listen(".App\\Events\\MessageUpdated", onUpdated)
+channel.listen(".App\\Events\\MessageDeleted", onDeleted)
+```
+
+Il listener sceglie `created` oppure `updated`, perche' la forma raw dei due
+payload e' identica. Dopo il parsing, l'hook espone un evento discriminato:
+`{ type: "created" | "updated", message }` oppure
+`{ type: "deleted", messageId }`. Per ora `ChatPage` monta soltanto l'hook;
+M2-006 usera' l'evento per riconciliare la cache TanStack Query.
+
+Se un payload non supera lo schema, l'hook lo ignora e continua ad ascoltare:
+non modifica `lastEvent` e non chiude il canale. In development `console.error`
+include payload ed errore Zod per facilitare il debug; in produzione non viene
+stampato nulla, per non trasformare input esterno malformato in rumore o dati
+nei log. Il cleanup ordinario dell'effetto chiama `echo.leave('chat')`; le
+regressioni di StrictMode e HMR sono trattate separatamente in M2-007.
+
+I test usano un mock Echo, non un WebSocket: verificano esattamente canale e tre
+FQCN, parsing/normalizzazione, rifiuto non bloccante, logging per ambiente e
+cleanup. Lo smoke runtime richiede invece sessione Sanctum, backend, Reverb e
+Next.js: produci una mutazione reale, correla il log di Reverb con un breakpoint
+DevTools impostato dove l'hook aggiorna `lastEvent`, senza aggiungere UI o log
+temporanei. Un errore comune e' omettere il punto iniziale nel listener: Echo
+trasforma allora il nome aggiungendo il namespace e non riceve l'evento Laravel.
+
+### Esercizio di validazione realtime
+
+Scrivi un payload `MessageDeleted` con `messageId` stringa e spiega perche'
+l'hook deve ignorarlo senza smettere di ascoltare. Poi togli mentalmente il punto
+da `.App\\Events\\MessageCreated`: quale nome formatterebbe Echo e perche' non
+corrisponde piu' al FQCN inviato da Laravel?
+
 ## Perche' `ShouldBroadcastNow`
 
 Normalmente Laravel accoda un broadcast per non aumentare il tempo della
@@ -374,4 +431,5 @@ Per il guard della SPA consulta [Laravel Sanctum 13](https://laravel.com/docs/13
 Il repository ufficiale di [Laravel Echo](https://github.com/laravel/echo) e il
 [changelog di pusher-js](https://github.com/pusher/pusher-js/blob/master/CHANGELOG.md)
 completano il riferimento per l'API client e la firma callback del custom
-handler.
+handler. Per gli schemi e `safeParse`, consulta la documentazione ufficiale di
+[Zod](https://zod.dev/).

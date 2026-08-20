@@ -18,6 +18,7 @@ import {
   useMessagesQuery,
   useUpdateMessageMutation,
 } from "@/app/features/messages/message.queries"
+import { useMessageRealtime } from "@/app/features/messages/realtime/use-message-realtime"
 import type {
   ChatMessage,
   CreateMessageInput,
@@ -46,6 +47,7 @@ function getAvatarUrl(username: string) {
 }
 
 export function ChatPage({ currentUser }: { currentUser: MessageUser }) {
+  useMessageRealtime()
   const {
     data,
     isError,

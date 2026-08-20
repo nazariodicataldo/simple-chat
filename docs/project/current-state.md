@@ -1,9 +1,9 @@
 # Stato corrente
 
 - **Milestone corrente:** Milestone 2 — Real-time diretto con Reverb ed Echo
-- **Ultimo task completato:** M2-004 — Configurare Echo frontend.
+- **Ultimo task completato:** M2-005 — Sottoscrivere e validare eventi Message.
 - **Task attivo:** nessuno.
-- **Prossimo task suggerito:** M2-005 — Sottoscrivere e validare eventi Message.
+- **Prossimo task suggerito:** M2-006 — Riconciliare cache realtime Message.
 - **Ultimo aggiornamento:** 2026-08-20.
 
 ## Funzionalita' esistenti
@@ -48,6 +48,12 @@
   alla UI; test, lint, typecheck e build sono eseguiti. Lo smoke locale
   autenticato del 2026-08-20, con Lerd/Reverb, ha completato la sottoscrizione
   a `private-chat`.
+- M2-005 sottoscrive `private-chat`, valida difensivamente gli eventi Message
+  e li normalizza senza aggiornare ancora la cache TanStack Query. Lo smoke
+  locale autenticato del 2026-08-20 ha confermato autorizzazione privata,
+  WebSocket Reverb e ricezione di `created`, `updated` e `deleted` su tre
+  mutazioni reali. Lo script `pnpm dev:https` avvia il frontend HTTPS locale
+  usando il CA di sistema di Node.
 - ADR 0003 fissa HTTPS/WSS come profilo locale predefinito per SPA, API e
   browser-verso-Reverb. Il broadcaster Laravel mantiene il collegamento
   interno HTTP su `localhost:8080` verso Reverb; questa separazione evita
@@ -67,6 +73,12 @@
   nel sandbox. `pnpm build` e' riuscito localmente dallo sviluppatore con
   Next.js `16.2.6`. Lo smoke browser autenticato del 2026-08-20 ha mostrato
   `Subscribed to private-chat` con Lerd e Reverb attivi.
+- Frontend, M2-005: i test mirati di schema/hook/ChatPage sono riusciti (23
+  test), cosi' come lint e typecheck. La suite Vitest standard e' riuscita
+  localmente dallo sviluppatore (13 file, 67 test), la build Next.js e' riuscita
+  e lo smoke runtime autenticato ha ricevuto gli eventi create/update/delete.
+  Una ripetizione finale nel sandbox ha confermato i 67 test, typecheck e lint;
+  la build qui non puo' scaricare il font remoto `Outfit` da Google Fonts.
 - Backend, M1-003: suite Pest (3 test, 10 assertion), Pint completo (28 file) e PHPStan con `--memory-limit=512M` verificati localmente dallo sviluppatore.
 - Backend, M2-003: prima della revisione `composer test` era riuscito (28
   test, 170 assertion, 1 skipped), con Pint e PHPStan a 0 errori e smoke Reverb
@@ -90,6 +102,12 @@
 - M2-003: nel sandbox il wrapper PHP 8.5 non puo' avviare Lerd senza accesso al
   D-Bus; i controlli backend sono stati eseguiti tramite il runtime locale
   autorizzato.
+- M2-005: lo smoke richiede backend, Reverb, Next.js e una sessione Sanctum
+  autenticata, non disponibili nel sandbox; la prova e' stata eseguita
+  localmente dallo sviluppatore con esito positivo.
+- La build frontend nel sandbox puo' fallire prima della compilazione perche'
+  non ha connettivita' verso Google Fonts; la verifica locale dell'ambiente di
+  sviluppo resta necessaria per `next/font` remoto.
 
 ## Decisioni aperte
 
