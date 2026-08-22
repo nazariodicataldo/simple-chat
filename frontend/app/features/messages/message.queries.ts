@@ -1,4 +1,4 @@
-import { type InfiniteData, useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
+import { type InfiniteData, type QueryClient, useInfiniteQuery, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 
 import {
   createMessage,
@@ -7,7 +7,7 @@ import {
   listMessages,
   updateMessage,
 } from "./message.service"
-import type { CreateMessageInput, MessageListQueryParams, MessageListResponse, UpdateMessageInput } from "./message.type"
+import type { CreateMessageInput, Message, MessageListQueryParams, MessageListResponse, UpdateMessageInput } from "./message.type"
 
 export const messageKeys = {
   all: ["messages"] as const,
@@ -22,6 +22,63 @@ export function getNextMessagePageParam(lastPage: Awaited<ReturnType<typeof list
     : undefined
 }
 
+export function keepNewerCachedMessages(
+  current: InfiniteData<MessageListResponse> | undefined,
+  incoming: InfiniteData<MessageListResponse>
+) {
+  if (!current) return incoming
+
+  const currentById = new Map(
+    current.pages.flatMap((page) => page.data.map((message) => [message.id, message]))
+  )
+
+  return {
+    ...incoming,
+    pages: incoming.pages.map((page) => ({
+      ...page,
+      data: page.data.map((message) => {
+        const currentMessage = currentById.get(message.id)
+
+        return currentMessage && Date.parse(currentMessage.updatedAt) > Date.parse(message.updatedAt)
+          ? currentMessage
+          : message
+      }),
+    })),
+  }
+}
+
+export function updateCachedMessage(queryClient: QueryClient, message: Message) {
+  queryClient.setQueryData<InfiniteData<MessageListResponse>>(messageKeys.lists(), (current) => {
+    if (!current) return current
+
+    return {
+      ...current,
+      pages: current.pages.map((page) => ({
+        ...page,
+        data: page.data.map((existing) =>
+          existing.id === message.id && Date.parse(existing.updatedAt) <= Date.parse(message.updatedAt)
+            ? message
+            : existing
+        ),
+      })),
+    }
+  })
+}
+
+export function removeCachedMessage(queryClient: QueryClient, messageId: number) {
+  queryClient.setQueryData<InfiniteData<MessageListResponse>>(messageKeys.lists(), (current) => {
+    if (!current) return current
+
+    return {
+      ...current,
+      pages: current.pages.map((page) => ({
+        ...page,
+        data: page.data.filter((message) => message.id !== messageId),
+      })),
+    }
+  })
+}
+
 export function useMessagesQuery() {
   return useInfiniteQuery<
     MessageListResponse,
@@ -34,6 +91,11 @@ export function useMessagesQuery() {
     initialPageParam: {} as MessageListQueryParams,
     queryFn: ({ pageParam }) => listMessages(pageParam),
     getNextPageParam: getNextMessagePageParam,
+    structuralSharing: (current, incoming) =>
+      keepNewerCachedMessages(
+        current as InfiniteData<MessageListResponse> | undefined,
+        incoming as InfiniteData<MessageListResponse>
+      ),
   })
 }
 
@@ -63,7 +125,10 @@ export function useUpdateMessageMutation() {
   return useMutation({
     mutationFn: ({ id, input }: { id: number; input: UpdateMessageInput }) =>
       updateMessage(id, input),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: messageKeys.lists() }),
+    onSuccess: (message) => {
+      updateCachedMessage(queryClient, message)
+      return queryClient.invalidateQueries({ queryKey: messageKeys.lists() })
+    },
   })
 }
 
@@ -72,6 +137,9 @@ export function useDeleteMessageMutation() {
 
   return useMutation({
     mutationFn: (id: number) => deleteMessage(id),
-    onSuccess: () => queryClient.invalidateQueries({ queryKey: messageKeys.lists() }),
+    onSuccess: (_data, messageId) => {
+      removeCachedMessage(queryClient, messageId)
+      return queryClient.invalidateQueries({ queryKey: messageKeys.lists() })
+    },
   })
 }

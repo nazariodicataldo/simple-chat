@@ -113,6 +113,33 @@ describe("useMessageRealtime", () => {
     vi.unstubAllEnvs()
   })
 
+  it("delivers every valid event directly to its consumer", () => {
+    const onEvent = vi.fn()
+
+    renderHook(() => useMessageRealtime(onEvent))
+
+    deliver(".App\\Events\\MessageCreated", { message })
+
+    expect(onEvent).toHaveBeenCalledOnce()
+    expect(onEvent).toHaveBeenCalledWith({ type: "created", message })
+  })
+
+  it("delivers an event to the callback supplied after a rerender", () => {
+    const firstOnEvent = vi.fn()
+    const secondOnEvent = vi.fn()
+    const { rerender } = renderHook(
+      ({ onEvent }) => useMessageRealtime(onEvent),
+      { initialProps: { onEvent: firstOnEvent } }
+    )
+
+    rerender({ onEvent: secondOnEvent })
+    deliver(".App\\Events\\MessageCreated", { message })
+
+    expect(secondOnEvent).toHaveBeenCalledOnce()
+    expect(secondOnEvent).toHaveBeenCalledWith({ type: "created", message })
+    expect(firstOnEvent).not.toHaveBeenCalled()
+  })
+
   it("subscribes to exactly the three Message FQCNs and normalizes valid payloads", () => {
     const { result } = renderHook(() => useMessageRealtime())
 

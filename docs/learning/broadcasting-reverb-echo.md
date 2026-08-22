@@ -330,10 +330,11 @@ channel.listen(".App\\Events\\MessageDeleted", onDeleted)
 ```
 
 Il listener sceglie `created` oppure `updated`, perche' la forma raw dei due
-payload e' identica. Dopo il parsing, l'hook espone un evento discriminato:
-`{ type: "created" | "updated", message }` oppure
-`{ type: "deleted", messageId }`. Per ora `ChatPage` monta soltanto l'hook;
-M2-006 usera' l'evento per riconciliare la cache TanStack Query.
+payload e' identica. Dopo il parsing, consegna subito alla callback del consumer
+un evento discriminato: `{ type: "created" | "updated", message }` oppure
+`{ type: "deleted", messageId }`. Consegnarlo direttamente evita di usare un
+solo `lastEvent`: due eventi ravvicinati non devono aspettare un render React
+intermedio per essere riconciliati.
 
 Se un payload non supera lo schema, l'hook lo ignora e continua ad ascoltare:
 non modifica `lastEvent` e non chiude il canale. In development `console.error`
@@ -343,11 +344,11 @@ nei log. Il cleanup ordinario dell'effetto chiama `echo.leave('chat')`; le
 regressioni di StrictMode e HMR sono trattate separatamente in M2-007.
 
 I test usano un mock Echo, non un WebSocket: verificano esattamente canale e tre
-FQCN, parsing/normalizzazione, rifiuto non bloccante, logging per ambiente e
-cleanup. Lo smoke runtime richiede invece sessione Sanctum, backend, Reverb e
-Next.js: produci una mutazione reale, correla il log di Reverb con un breakpoint
-DevTools impostato dove l'hook aggiorna `lastEvent`, senza aggiungere UI o log
-temporanei. Un errore comune e' omettere il punto iniziale nel listener: Echo
+FQCN, parsing/normalizzazione, consegna alla callback, rifiuto non bloccante,
+logging per ambiente e cleanup. Lo smoke runtime richiede invece sessione
+Sanctum, backend, Reverb e Next.js: produci una mutazione reale, correla il log
+di Reverb con un breakpoint DevTools impostato nella callback di riconciliazione,
+senza aggiungere UI o log temporanei. Un errore comune e' omettere il punto iniziale nel listener: Echo
 trasforma allora il nome aggiungendo il namespace e non riceve l'evento Laravel.
 
 ### Esercizio di validazione realtime
@@ -356,6 +357,89 @@ Scrivi un payload `MessageDeleted` con `messageId` stringa e spiega perche'
 l'hook deve ignorarlo senza smettere di ascoltare. Poi togli mentalmente il punto
 da `.App\\Events\\MessageCreated`: quale nome formatterebbe Echo e perche' non
 corrisponde piu' al FQCN inviato da Laravel?
+
+## Riconciliare eventi realtime e cache HTTP
+
+M2-006 mantiene due contenitori nel browser, con ruoli diversi:
+
+- la cache TanStack Query (`data.pages`) conserva le pagine cursor-paginate che
+  arrivano da `GET /api/messages`;
+- `localMessages` e' una proiezione transitoria: contiene un optimistic create,
+  la risposta HTTP del proprio create prima che una pagina la includa e i create
+  arrivati da WebSocket che non sono ancora in una pagina HTTP.
+
+Non si tratta della cache HTTP del browser. E' memoria dell'app React, gestita
+da TanStack Query. Nel rendering una pagina HTTP ha precedenza su una copia
+locale con lo stesso ID; dopo un refetch, la copia locale numerica non viene
+piu' renderizzata. Un ID temporaneo dell'optimistic create resta invece locale
+finche' la richiesta non riesce o fallisce.
+
+Il percorso di un create remoto e' questo:
+
+```text
+MessageCreated WebSocket
+  -> Echo valida con Zod
+  -> callback realtime
+  -> localMessages, solo se l'ID non e' gia' presente
+  -> bubble visibile senza refetch
+  -> futuro GET contiene lo stesso ID
+  -> la pagina HTTP ha precedenza, la copia locale non e' piu' visibile
+```
+
+Update e delete non aggiungono un messaggio mancante. Update sostituisce lo
+stesso ID sia nelle pagine gia' caricate sia in `localMessages`; delete lo
+rimuove da entrambi. Le risposte HTTP delle proprie mutation applicano le stesse
+operazioni: `PUT` restituisce il Message canonico, `DELETE 204` rimuove l'ID.
+Così il broadcast equivalente puo' arrivare prima o dopo senza produrre un
+secondo risultato permanente.
+
+Per lo stesso ID, `updatedAt` evita di tornare indietro nel tempo: una copia con
+timestamp piu' vecchio non sovrascrive una piu' recente. Questa regola vale
+anche quando un GET gia' partito arriva dopo un update realtime. Un evento
+create/update con date `null` passa lo schema di trasporto, ma non puo' formare
+un `Message` della UI: viene ignorato e, solo in development, segnalato in
+console. Non modifica Zod, il backend o le regole di autorizzazione.
+
+La configurazione minima resta quella gia' vista per Echo: il browser deve avere
+app key, host, porta e schema pubblici per connettersi a Reverb; cookie Sanctum e
+Axios condiviso autorizzano `private-chat`. Questa riconciliazione non richiede
+nuove dipendenze, un cache globale aggiuntivo o una queue.
+
+### Come verificare la riconciliazione
+
+I test frontend usano QueryClient reale con servizi HTTP controllati e un mock
+Echo. Coprono create remoto, update/delete nelle pagine e nella proiezione
+locale, evento duplicato dopo la risposta HTTP, refetch che promuove una copia
+live, timestamp stale e payload con date mancanti. Lo smoke manuale richiede due
+browser autenticati: crea in A e osserva una bubble in B; modifica e cancella in
+A e verifica B senza refresh; infine crea in A e verifica che dopo broadcast e
+refetch A mostri una sola bubble.
+
+Un errore comune e' appendere ogni `MessageCreated` direttamente alle pagine
+HTTP oppure alla lista locale senza deduplicare: dopo refetch appaiono due
+bubble. L'ID server, non testo, autore o timestamp, e' l'identita' usata per
+deduplicare. Un altro errore e' lasciare che una risposta GET piu' vecchia
+sovrascriva l'update WebSocket piu' recente.
+
+In produzione il principio e' identico, ma disconnessioni e riconnessioni
+richiedono una strategia di refetch o di recupero eventi definita dal prodotto.
+Questa chat locale non implementa replay, tombstone di delete o un
+`clientMutationId`: puo' quindi mostrare per un istante sia l'optimistic create
+sia il broadcast proprio prima della risposta HTTP. Il risultato converge a una
+sola bubble quando la risposta canonica arriva.
+
+### Esercizio di riconciliazione
+
+Disegna due colonne, `data.pages` e `localMessages`. Segui nell'ordine: invio
+optimistic con ID temporaneo, `MessageCreated` con ID 42, risposta POST con ID
+42 e un GET che contiene 42. In quale passaggio puo' comparire una duplicazione
+brevissima, e perche' non e' possibile correlare con certezza l'ID temporaneo a
+42 senza che il backend invii un `clientMutationId`? Poi prova a spiegare perche'
+`updatedAt` e' utile per update ma non basta a recuperare eventi persi durante
+una disconnessione.
+
+Per i dettagli dell'API di cache e delle mutation, consulta la documentazione
+ufficiale di [TanStack Query per React](https://tanstack.com/query/latest/docs/framework/react/overview).
 
 ## Perche' `ShouldBroadcastNow`
 

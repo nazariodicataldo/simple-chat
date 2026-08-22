@@ -1,4 +1,5 @@
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
+import { act, fireEvent, render as renderBase, screen, waitFor } from "@testing-library/react"
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 const { mutate, updateMutate, deleteMutate, useCreateMessageMutation, useUpdateMessageMutation, useDeleteMessageMutation, useMessageRealtime, useMessagesQuery } = vi.hoisted(() => ({
@@ -17,6 +18,8 @@ vi.mock("@/app/features/messages/message.queries", () => ({
   useUpdateMessageMutation,
   useDeleteMessageMutation,
   useMessagesQuery,
+  removeCachedMessage: vi.fn(),
+  updateCachedMessage: vi.fn(),
 }))
 
 vi.mock("@/app/features/messages/realtime/use-message-realtime", () => ({
@@ -28,6 +31,16 @@ vi.mock("@/components/auth/logout-button", () => ({
 }))
 
 import { ChatPage } from "@/components/chat/chat-page"
+
+function render(ui: React.ReactNode) {
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+
+  return renderBase(ui, {
+    wrapper: ({ children }) => (
+      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+    ),
+  })
+}
 
 const currentUser = {
   id: 1,

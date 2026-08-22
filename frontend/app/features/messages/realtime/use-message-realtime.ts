@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useEffectEvent, useState } from "react"
 
 import { getEcho } from "@/lib/echo"
 
@@ -50,10 +50,16 @@ function parseDeletedEvent(payload: unknown): MessageRealtimeEvent | null {
   return { type: "deleted", messageId: result.data.messageId }
 }
 
-export function useMessageRealtime(): {
+export function useMessageRealtime(
+  onEvent?: (event: MessageRealtimeEvent) => void
+): {
   lastEvent: MessageRealtimeEvent | null
 } {
   const [lastEvent, setLastEvent] = useState<MessageRealtimeEvent | null>(null)
+  const receive = useEffectEvent((event: MessageRealtimeEvent) => {
+    onEvent?.(event)
+    setLastEvent(event)
+  })
 
   useEffect(() => {
     const echo = getEcho()
@@ -61,15 +67,15 @@ export function useMessageRealtime(): {
 
     channel.listen(messageRealtimeEventNames.created, (payload: unknown) => {
       const event = parseMessageEvent("created", payload)
-      if (event) setLastEvent(event)
+      if (event) receive(event)
     })
     channel.listen(messageRealtimeEventNames.updated, (payload: unknown) => {
       const event = parseMessageEvent("updated", payload)
-      if (event) setLastEvent(event)
+      if (event) receive(event)
     })
     channel.listen(messageRealtimeEventNames.deleted, (payload: unknown) => {
       const event = parseDeletedEvent(payload)
-      if (event) setLastEvent(event)
+      if (event) receive(event)
     })
 
     return () => echo.leave("chat")

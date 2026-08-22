@@ -1,7 +1,8 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { CheckCircle2Icon, AlertCircleIcon, XIcon } from "lucide-react"
+import { useQueryClient } from "@tanstack/react-query"
 
 import { Chat } from "@/components/chat/chat"
 import { ChatForm } from "@/components/chat/chat-form"
@@ -17,8 +18,14 @@ import {
   useDeleteMessageMutation,
   useMessagesQuery,
   useUpdateMessageMutation,
+  removeCachedMessage,
+  updateCachedMessage,
 } from "@/app/features/messages/message.queries"
-import { useMessageRealtime } from "@/app/features/messages/realtime/use-message-realtime"
+import {
+  type MessageRealtimeEvent,
+  useMessageRealtime,
+} from "@/app/features/messages/realtime/use-message-realtime"
+import type { RealtimeMessage } from "@/app/features/messages/realtime/message-realtime.schema"
 import type {
   ChatMessage,
   CreateMessageInput,
@@ -46,8 +53,42 @@ function getAvatarUrl(username: string) {
   return `https://api.dicebear.com/10.x/glyphs/svg?seed=${encodeURIComponent(username)}`
 }
 
+function normalizeRealtimeMessage(message: RealtimeMessage): Message | null {
+  if (!message.createdAt || !message.updatedAt) {
+    if (process.env.NODE_ENV === "development") {
+      console.error("Ignoring realtime message with missing timestamps.", message)
+    }
+
+    return null
+  }
+
+  return {
+    id: message.id,
+    userId: message.userId,
+    text: message.text,
+    createdAt: message.createdAt,
+    updatedAt: message.updatedAt,
+    deletedAt: null,
+    user: message.user,
+  }
+}
+
+function updateLocalMessage(current: ChatMessage[], message: Message) {
+  return current.map((existing) =>
+    typeof existing.id === "number" &&
+    existing.id === message.id &&
+    Date.parse(existing.updatedAt) <= Date.parse(message.updatedAt)
+      ? message
+      : existing
+  )
+}
+
+function removeLocalMessage(current: ChatMessage[], messageId: number) {
+  return current.filter((message) => message.id !== messageId)
+}
+
 export function ChatPage({ currentUser }: { currentUser: MessageUser }) {
-  useMessageRealtime()
+  const queryClient = useQueryClient()
   const {
     data,
     isError,
@@ -67,19 +108,60 @@ export function ChatPage({ currentUser }: { currentUser: MessageUser }) {
   const [deletingMessage, setDeletingMessage] = useState<Message | null>(null)
   const [notice, setNotice] = useState<Notice | null>(null)
 
+  const reconcileRealtimeEvent = useCallback(
+    (event: MessageRealtimeEvent) => {
+      if (event.type === "deleted") {
+        removeCachedMessage(queryClient, event.messageId)
+        setLocalMessages((current) => removeLocalMessage(current, event.messageId))
+        return
+      }
+
+      const message = normalizeRealtimeMessage(event.message)
+      if (!message) return
+
+      if (event.type === "created") {
+        const existsInCache = data?.pages.some((page) =>
+          page.data.some((existing) => existing.id === message.id)
+        )
+
+        if (!existsInCache) {
+          setLocalMessages((current) =>
+            current.some((existing) => existing.id === message.id)
+              ? current
+              : [...current, message]
+          )
+        }
+
+        return
+      }
+
+      updateCachedMessage(queryClient, message)
+      setLocalMessages((current) => updateLocalMessage(current, message))
+    },
+    [data, queryClient]
+  )
+
+  useMessageRealtime(reconcileRealtimeEvent)
+
   useEffect(() => {
     if (!notice) return
 
     const timeout = window.setTimeout(() => setNotice(null), 3_000)
     return () => window.clearTimeout(timeout)
   }, [notice])
+
   const messages = useMemo(() => {
     const remote = data?.pages.flatMap((page) => page.data) ?? []
-    const ids = new Set(remote.map((message) => String(message.id)))
-    return [
-      ...remote,
-      ...localMessages.filter((message) => !ids.has(String(message.id))),
-    ]
+    const ids = new Set<string>()
+    const deduplicate = (message: ChatMessage) => {
+      const id = String(message.id)
+      if (ids.has(id)) return false
+
+      ids.add(id)
+      return true
+    }
+
+    return [...remote.filter(deduplicate), ...localMessages.filter(deduplicate)]
   }, [data, localMessages])
 
   function sendMessage(message: LocalMessage) {
@@ -88,10 +170,11 @@ export function ChatPage({ currentUser }: { currentUser: MessageUser }) {
       { text: message.text },
       {
         onSuccess: (created) => {
+          const canonical = { ...created, user: currentUser }
           setLocalMessages((current) =>
-            current.map((item) =>
-              item.id === message.id ? { ...created, user: currentUser } : item
-            )
+            current
+              .filter((item) => item.id !== canonical.id)
+              .map((item) => (item.id === message.id ? canonical : item))
           )
         },
         onError: () => failLocalMessage(message.id),
@@ -117,12 +200,14 @@ export function ChatPage({ currentUser }: { currentUser: MessageUser }) {
     createMessage.mutate(
       { text: message.text },
       {
-        onSuccess: (created) =>
+        onSuccess: (created) => {
+          const canonical = { ...created, user: currentUser }
           setLocalMessages((current) =>
-            current.map((item) =>
-              item.id === message.id ? { ...created, user: currentUser } : item
-            )
-          ),
+            current
+              .filter((item) => item.id !== canonical.id)
+              .map((item) => (item.id === message.id ? canonical : item))
+          )
+        },
         onError: () => failLocalMessage(message.id),
       }
     )
@@ -147,7 +232,8 @@ export function ChatPage({ currentUser }: { currentUser: MessageUser }) {
     updateMessage.mutate(
       { id: editingMessage.id, input: { text: values.text.trim() } },
       {
-        onSuccess: () => {
+        onSuccess: (updated) => {
+          setLocalMessages((current) => updateLocalMessage(current, updated))
           setEditingMessage(null)
           setNotice({
             kind: "success",
@@ -165,6 +251,7 @@ export function ChatPage({ currentUser }: { currentUser: MessageUser }) {
     if (!deletingMessage) return
     deleteMessage.mutate(deletingMessage.id, {
       onSuccess: () => {
+        setLocalMessages((current) => removeLocalMessage(current, deletingMessage.id))
         setDeletingMessage(null)
         setNotice({
           kind: "success",

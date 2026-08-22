@@ -1,10 +1,10 @@
 # Stato corrente
 
 - **Milestone corrente:** Milestone 2 — Real-time diretto con Reverb ed Echo
-- **Ultimo task completato:** M2-005 — Sottoscrivere e validare eventi Message.
+- **Ultimo task completato:** M2-006 — Riconciliare cache realtime Message.
 - **Task attivo:** nessuno.
-- **Prossimo task suggerito:** M2-006 — Riconciliare cache realtime Message.
-- **Ultimo aggiornamento:** 2026-08-20.
+- **Prossimo task suggerito:** M2-007 — Ripulire listener realtime.
+- **Ultimo aggiornamento:** 2026-08-22.
 
 ## Funzionalita' esistenti
 
@@ -54,6 +54,11 @@
   WebSocket Reverb e ricezione di `created`, `updated` e `deleted` su tre
   mutazioni reali. Lo script `pnpm dev:https` avvia il frontend HTTPS locale
   usando il CA di sistema di Node.
+- M2-006 completa la riconciliazione degli eventi realtime con le pagine TanStack Query e la
+  proiezione `localMessages`: create entra una sola volta, update/delete
+  aggiornano entrambe le proiezioni e `updatedAt` impedisce che un refetch stale
+  sovrascriva una versione piu' recente. Test automatici, build locale e smoke
+  a due browser sono riusciti.
 - ADR 0003 fissa HTTPS/WSS come profilo locale predefinito per SPA, API e
   browser-verso-Reverb. Il broadcaster Laravel mantiene il collegamento
   interno HTTP su `localhost:8080` verso Reverb; questa separazione evita
@@ -79,6 +84,10 @@
   e lo smoke runtime autenticato ha ricevuto gli eventi create/update/delete.
   Una ripetizione finale nel sandbox ha confermato i 67 test, typecheck e lint;
   la build qui non puo' scaricare il font remoto `Outfit` da Google Fonts.
+- Frontend, M2-006: 39 test mirati, `pnpm test` (14 file, 80 test), lint e
+  typecheck sono riusciti nel sandbox. La build nel sandbox resta bloccata dal
+  download remoto di `Outfit`, ma `pnpm build` e lo smoke a due browser sono
+  riusciti localmente il 2026-08-22.
 - Backend, M1-003: suite Pest (3 test, 10 assertion), Pint completo (28 file) e PHPStan con `--memory-limit=512M` verificati localmente dallo sviluppatore.
 - Backend, M2-003: prima della revisione `composer test` era riuscito (28
   test, 170 assertion, 1 skipped), con Pint e PHPStan a 0 errori e smoke Reverb
