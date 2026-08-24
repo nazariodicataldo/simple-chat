@@ -3,10 +3,24 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 const mocks = vi.hoisted(() => {
-  const listeners = new Map<string, (payload: unknown) => void>()
+  const activeListeners = new Map<
+    string,
+    Array<(payload: unknown) => void>
+  >()
+  const historicalListeners = new Map<
+    string,
+    Array<(payload: unknown) => void>
+  >()
   const channel = {
     listen: vi.fn((eventName: string, listener: (payload: unknown) => void) => {
-      listeners.set(eventName, listener)
+      activeListeners.set(eventName, [
+        ...(activeListeners.get(eventName) ?? []),
+        listener,
+      ])
+      historicalListeners.set(eventName, [
+        ...(historicalListeners.get(eventName) ?? []),
+        listener,
+      ])
       return channel
     }),
   }
@@ -16,9 +30,12 @@ const mocks = vi.hoisted(() => {
     createMessage: vi.fn(),
     getEcho: vi.fn(),
     leave: vi.fn(),
-    listeners,
+    activeListeners,
+    historicalListeners,
     listMessages: vi.fn(),
     privateChannel: vi.fn(),
+    removeCachedMessage: vi.fn(),
+    updateCachedMessage: vi.fn(),
   }
 })
 
@@ -31,6 +48,24 @@ vi.mock("@/app/features/messages/message.service", () => ({
   listMessages: mocks.listMessages,
   updateMessage: vi.fn(),
 }))
+
+vi.mock("@/app/features/messages/message.queries", async () => {
+  const actual = await vi.importActual<typeof import("@/app/features/messages/message.queries")>(
+    "@/app/features/messages/message.queries"
+  )
+
+  return {
+    ...actual,
+    removeCachedMessage: vi.fn((...args: Parameters<typeof actual.removeCachedMessage>) => {
+      mocks.removeCachedMessage(...args)
+      return actual.removeCachedMessage(...args)
+    }),
+    updateCachedMessage: vi.fn((...args: Parameters<typeof actual.updateCachedMessage>) => {
+      mocks.updateCachedMessage(...args)
+      return actual.updateCachedMessage(...args)
+    }),
+  }
+})
 
 vi.mock("@/components/auth/logout-button", () => ({
   LogoutButton: () => <button type="button">Log out</button>,
@@ -68,21 +103,25 @@ function renderChatPage() {
 }
 
 function deliver(eventName: string, payload: unknown) {
-  const listener = mocks.listeners.get(eventName)
-  if (!listener) throw new Error(`Missing listener for ${eventName}`)
+  const listeners = mocks.activeListeners.get(eventName)
+  if (!listeners?.length) throw new Error(`Missing active listener for ${eventName}`)
 
-  act(() => listener(payload))
+  act(() => listeners.forEach((listener) => listener(payload)))
 }
 
 describe("ChatPage realtime reconciliation", () => {
   beforeEach(() => {
-    mocks.listeners.clear()
+    mocks.activeListeners.clear()
+    mocks.historicalListeners.clear()
     mocks.createMessage.mockReset()
     mocks.getEcho.mockReset()
     mocks.leave.mockReset()
     mocks.privateChannel.mockReset()
     mocks.listMessages.mockReset()
+    mocks.removeCachedMessage.mockReset()
+    mocks.updateCachedMessage.mockReset()
     mocks.privateChannel.mockReturnValue(mocks.channel)
+    mocks.leave.mockImplementation(() => mocks.activeListeners.clear())
     mocks.getEcho.mockReturnValue({ leave: mocks.leave, private: mocks.privateChannel })
     mocks.listMessages.mockResolvedValue({
       success: true,
@@ -123,6 +162,40 @@ describe("ChatPage realtime reconciliation", () => {
     deliver(".App\\Events\\MessageDeleted", { messageId: message.id })
 
     await waitFor(() => expect(screen.queryByText("Messaggio live aggiornato")).not.toBeInTheDocument())
+  })
+
+  it("reconciles one active update and ignores its callback after unmount", async () => {
+    mocks.listMessages.mockResolvedValueOnce({
+      success: true,
+      data: [{ ...message, deletedAt: null }],
+      timestamp: "2026-08-20T09:00:00.000000Z",
+      message: null,
+      code: 200,
+      pagination: { nextCursor: null, previousCursor: null, hasMorePages: false, perPage: 20 },
+    })
+    const { unmount } = renderChatPage()
+
+    expect(await screen.findByText(message.text)).toBeInTheDocument()
+    const [lateUpdateListener] = mocks.historicalListeners.get(
+      ".App\\Events\\MessageUpdated"
+    ) ?? []
+
+    deliver(".App\\Events\\MessageUpdated", {
+      message: { ...message, text: "Messaggio aggiornato", updatedAt: "2026-08-20T10:00:00.000Z" },
+    })
+
+    expect(await screen.findByText("Messaggio aggiornato")).toBeInTheDocument()
+    expect(screen.getAllByText("Messaggio aggiornato")).toHaveLength(1)
+    expect(mocks.updateCachedMessage).toHaveBeenCalledOnce()
+
+    unmount()
+    act(() =>
+      lateUpdateListener?.({
+        message: { ...message, text: "Aggiornamento tardivo", updatedAt: "2026-08-20T11:00:00.000Z" },
+      })
+    )
+
+    expect(mocks.updateCachedMessage).toHaveBeenCalledOnce()
   })
 
   it("updates a loaded message and removes it after a remote delete", async () => {

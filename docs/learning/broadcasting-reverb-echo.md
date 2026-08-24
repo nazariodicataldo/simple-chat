@@ -343,6 +343,82 @@ stampato nulla, per non trasformare input esterno malformato in rumore o dati
 nei log. Il cleanup ordinario dell'effetto chiama `echo.leave('chat')`; le
 regressioni di StrictMode e HMR sono trattate separatamente in M2-007.
 
+## Lifecycle del listener e React StrictMode
+
+Un listener realtime appartiene al ciclo di vita del componente che lo usa. Al
+mount, l'effetto costruisce `private('chat')` e registra i tre FQCN; al cleanup
+rilascia la sottoscrizione. Il hook mantiene anche un flag locale alla singola
+sottoscrizione: il cleanup lo disattiva prima di chiamare `echo.leave('chat')`.
+Questo secondo controllo e' utile se il trasporto conserva per errore una
+callback e la invoca dopo l'unmount: quella callback non deve raggiungere ne' il
+consumer ne' lo stato React.
+
+La configurazione minima pertinente e' questa, con un solo effetto e un solo
+cleanup gia' posseduti dal hook:
+
+```tsx
+useEffect(() => {
+  let active = true
+  const echo = getEcho()
+  const channel = echo.private("chat")
+
+  channel.listen(".App\\Events\\MessageCreated", (payload) => {
+    if (!active) return
+    // valida il payload e consegnalo al consumer
+  })
+
+  return () => {
+    active = false
+    echo.leave("chat")
+  }
+}, [])
+```
+
+In sviluppo, `StrictMode` puo' eseguire la sequenza mount-cleanup-remount per
+far emergere effetti non reversibili. Nel test del progetto questo significa
+due chiamate a `private('chat')`, sei chiamate complessive a `listen`, una
+`leave('chat')` intermedia e, alla fine, una sola callback attiva per evento.
+L'evento ordinario va consegnato solo alle callback attive; una callback storica
+va invocata direttamente soltanto nel test del caso tardivo.
+
+La verifica automatica usa un mock Echo che separa callback attive e storiche:
+
+```bash
+pnpm exec vitest run app/__test__/messages/message-realtime.test.tsx
+pnpm exec vitest run app/__test__/messages/chat-page-realtime.test.tsx
+```
+
+Il test d'integrazione osserva una sola riconciliazione cache e una sola bubble
+per un update valido, poi invoca la callback catturata prima dell'unmount e
+verifica che la riconciliazione non aumenti. Per la verifica manuale, distinguere
+in DevTools il socket HMR `/_next/webpack-hmr` dal socket Reverb
+`wss://api.simple-chat.test/app/...`: dopo Fast Refresh, uscita/rientro nella
+chat e un nuovo messaggio inviato dal secondo browser deve apparire una sola
+volta, senza warning React.
+
+Un errore comune e' registrare il listener durante il render, oppure mettere
+`onEvent` nelle dipendenze dell'effetto e ricreare il canale a ogni render. In
+entrambi i casi il lifecycle diventa difficile da seguire e possono comparire
+listener duplicati. Qui `useEffectEvent` permette al listener stabile di usare
+il consumer piu' recente; `[]` mantiene stabile la sottoscrizione e il cleanup
+resta quello del hook. Un'altra trappola e' usare un flag condiviso fra mount
+diversi: la callback vecchia potrebbe tornare attiva dopo un remount. Il flag
+deve appartenere alla singola esecuzione dell'effetto.
+
+In produzione React non ripete automaticamente l'effetto come controllo di
+`StrictMode`, quindi il doppio mount osservato nei test e' uno strumento di
+sviluppo, non un comportamento da conteggiare come traffico reale. Il cleanup e
+la guard locale restano comunque necessari: navigazione, HMR, riconnessioni e
+callback gia' consegnate dal trasporto possono ancora incrociarsi con l'unmount.
+
+### Esercizio sul lifecycle
+
+Disegna una linea temporale con `mount -> listen x3 -> cleanup -> leave ->
+remount -> listen x3`. Indica quali tre callback possono ricevere un evento
+ordinario e quale callback puoi conservare per il test tardivo. Poi spiega
+perche' `leave('chat')` da solo non dimostra che una funzione gia' catturata non
+verra' piu' invocata.
+
 I test usano un mock Echo, non un WebSocket: verificano esattamente canale e tre
 FQCN, parsing/normalizzazione, consegna alla callback, rifiuto non bloccante,
 logging per ambiente e cleanup. Lo smoke runtime richiede invece sessione
@@ -516,4 +592,6 @@ Il repository ufficiale di [Laravel Echo](https://github.com/laravel/echo) e il
 [changelog di pusher-js](https://github.com/pusher/pusher-js/blob/master/CHANGELOG.md)
 completano il riferimento per l'API client e la firma callback del custom
 handler. Per gli schemi e `safeParse`, consulta la documentazione ufficiale di
-[Zod](https://zod.dev/).
+[Zod](https://zod.dev/). Per il lifecycle React consulta [StrictMode](https://react.dev/reference/react/StrictMode)
+e [`useEffect`](https://react.dev/reference/react/useEffect); per Fast Refresh
+consulta la guida ufficiale di [Next.js](https://nextjs.org/docs/architecture/fast-refresh).

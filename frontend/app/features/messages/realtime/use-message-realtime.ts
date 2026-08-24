@@ -62,23 +62,30 @@ export function useMessageRealtime(
   })
 
   useEffect(() => {
+    let active = true
     const echo = getEcho()
     const channel = echo.private("chat")
 
     channel.listen(messageRealtimeEventNames.created, (payload: unknown) => {
+      if (!active) return
       const event = parseMessageEvent("created", payload)
       if (event) receive(event)
     })
     channel.listen(messageRealtimeEventNames.updated, (payload: unknown) => {
+      if (!active) return
       const event = parseMessageEvent("updated", payload)
       if (event) receive(event)
     })
     channel.listen(messageRealtimeEventNames.deleted, (payload: unknown) => {
+      if (!active) return
       const event = parseDeletedEvent(payload)
       if (event) receive(event)
     })
 
-    return () => echo.leave("chat")
+    return () => {
+      active = false
+      echo.leave("chat")
+    }
   }, [])
 
   return { lastEvent }

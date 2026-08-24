@@ -1,10 +1,10 @@
 # Stato corrente
 
 - **Milestone corrente:** Milestone 2 — Real-time diretto con Reverb ed Echo
-- **Ultimo task completato:** M2-006 — Riconciliare cache realtime Message.
+- **Ultimo task completato:** M2-007 — Verificare lifecycle realtime con StrictMode.
 - **Task attivo:** nessuno.
-- **Prossimo task suggerito:** M2-007 — Ripulire listener realtime.
-- **Ultimo aggiornamento:** 2026-08-22.
+- **Prossimo task suggerito:** M2-008 — Verificare realtime con due browser.
+- **Ultimo aggiornamento:** 2026-08-24.
 
 ## Funzionalita' esistenti
 
@@ -59,6 +59,13 @@
   aggiornano entrambe le proiezioni e `updatedAt` impedisce che un refetch stale
   sovrascriva una versione piu' recente. Test automatici, build locale e smoke
   a due browser sono riusciti.
+- M2-007 ha aggiunto una guard locale per sottoscrizione nel hook realtime: dopo
+  il cleanup una callback storica non raggiunge il consumer, `lastEvent` o la
+  riconciliazione. I test coprono StrictMode mount-cleanup-remount, rerender,
+  integrazione ChatPage e una sola bubble/cache reconciliation; lint, typecheck,
+  suite frontend e build sono riusciti. Lo smoke manuale HMR/Reverb in due
+  browser ha verificato socket Reverb e HMR distinti, autorizzazione del canale,
+  unsubscribe/subscribe e una sola bubble dopo Fast Refresh e rientro nella chat.
 - ADR 0003 fissa HTTPS/WSS come profilo locale predefinito per SPA, API e
   browser-verso-Reverb. Il broadcaster Laravel mantiene il collegamento
   interno HTTP su `localhost:8080` verso Reverb; questa separazione evita
@@ -88,6 +95,14 @@
   typecheck sono riusciti nel sandbox. La build nel sandbox resta bloccata dal
   download remoto di `Outfit`, ma `pnpm build` e lo smoke a due browser sono
   riusciti localmente il 2026-08-22.
+- Frontend, M2-007, 2026-08-24: test mirati hook/integration (25 test), `pnpm
+  test` (14 file, 83 test), `pnpm lint`, `pnpm typecheck` e `pnpm build` sono
+  riusciti. La prima build sandbox e' fallita soltanto sul download remoto di
+  `Outfit`; la build ripetuta con rete autorizzata e' riuscita. Smoke manuale
+  HMR/Reverb in due browser riuscito: Reverb WSS e HMR WSS hanno restituito
+  `101 Switching Protocols`, `/broadcasting/auth` `200 OK`, il canale
+  `private-chat` ha completato unsubscribe/subscribe e il messaggio di prova
+  dopo il rientro e' apparso in una sola bubble, senza errori in console.
 - Backend, M1-003: suite Pest (3 test, 10 assertion), Pint completo (28 file) e PHPStan con `--memory-limit=512M` verificati localmente dallo sviluppatore.
 - Backend, M2-003: prima della revisione `composer test` era riuscito (28
   test, 170 assertion, 1 skipped), con Pint e PHPStan a 0 errori e smoke Reverb
@@ -134,3 +149,9 @@
 - M1-007, 2026-08-10: `composer test` riuscito (13 test, 87 assertion); PHPStan con `--memory-limit=512M` riuscito (0 errori); Pint sui file modificati riuscito. Pint completo segnala soltanto `database/seeders/DatabaseSeeder.php`, file preesistente fuori scope.
 - M1-008, 2026-08-10: verifica locale PHP 8.5 Lerd riuscita per `composer test` (20 test, 140 assertion) e PHPStan (34/34, nessun errore); Pint completo riuscito nel sandbox; smoke Postman Sanctum cookie/CSRF riuscito. Smoke browser rinviato al prossimo task frontend per decisione esplicita.
 - M2-001, 2026-08-14: verifica locale PHP 8.5 Lerd riuscita per `composer test` (25 test, 158 assertion, inclusi i cinque `MessageBroadcastingTest`), `./vendor/bin/pint --test` e `./vendor/bin/phpstan analyse --memory-limit=512M` (0 errori).
+- M2-007, 2026-08-24: da `frontend/`, test mirati (25 test) e suite `pnpm
+  test` (14 file, 83 test) riusciti; `pnpm lint`, `pnpm typecheck` e `pnpm build`
+  riusciti. La build ha richiesto accesso di rete per il font remoto `Outfit`.
+  Smoke manuale HMR/Reverb riuscito con handshake WSS `101`, autorizzazione
+  `200`, nuova subscription `private-chat`, evento `MessageCreated` ricevuto
+  e una sola bubble dopo il rientro nella chat.

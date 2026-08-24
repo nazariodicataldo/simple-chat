@@ -172,7 +172,7 @@ l'hook.
   montaggio dell'hook.
 - `docs/learning/broadcasting-reverb-echo.md` — guida alla validazione
   difensiva lato browser.
-- `docs/tasks/active/M2-007-ripulire-listener-realtime.md` — pianificazione
+- `docs/tasks/completed/M2-007-ripulire-listener-realtime.md` — verifica lifecycle completata
   aggiornata del lifecycle successivo, per autorizzazione esplicita dell'utente.
 - `frontend/package.json` — script locale `dev:https`, autorizzato
   esplicitamente dall'utente, per avviare Next HTTPS con il CA di sistema Node.

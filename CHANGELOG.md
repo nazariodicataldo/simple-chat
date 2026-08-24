@@ -26,6 +26,10 @@ Il formato e' ispirato a [Keep a Changelog](https://keepachangelog.com/it/1.1.0/
 - Il submit del form di invio resta disabilitato quando il messaggio e' vuoto o
   contiene soltanto spazi.
 
+- Il lifecycle del listener realtime Message protegge consumer e riconciliazione
+  da callback tardive dopo cleanup, mantenendo una sola sottoscrizione attiva
+  durante mount, StrictMode e rerender.
+
 - Inizializzato un unico repository Git nella root del monorepo; rimossi i repository Git annidati di backend e frontend.
 
 - Aggiunte regole Git ignore root per environment locali e artefatti rigenerabili del monorepo.

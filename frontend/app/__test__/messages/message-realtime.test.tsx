@@ -1,11 +1,26 @@
 import { act, renderHook } from "@testing-library/react"
+import { StrictMode } from "react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 const mocks = vi.hoisted(() => {
-  const listeners = new Map<string, (payload: unknown) => void>()
+  const activeListeners = new Map<
+    string,
+    Array<(payload: unknown) => void>
+  >()
+  const historicalListeners = new Map<
+    string,
+    Array<(payload: unknown) => void>
+  >()
   const channel = {
     listen: vi.fn((eventName: string, listener: (payload: unknown) => void) => {
-      listeners.set(eventName, listener)
+      activeListeners.set(eventName, [
+        ...(activeListeners.get(eventName) ?? []),
+        listener,
+      ])
+      historicalListeners.set(eventName, [
+        ...(historicalListeners.get(eventName) ?? []),
+        listener,
+      ])
       return channel
     }),
   }
@@ -14,7 +29,8 @@ const mocks = vi.hoisted(() => {
     channel,
     getEcho: vi.fn(),
     leave: vi.fn(),
-    listeners,
+    activeListeners,
+    historicalListeners,
     privateChannel: vi.fn(),
   }
 })
@@ -25,7 +41,10 @@ import {
   messageDeletedEventPayloadSchema,
   messageEventPayloadSchema,
 } from "@/app/features/messages/realtime/message-realtime.schema"
-import { useMessageRealtime } from "@/app/features/messages/realtime/use-message-realtime"
+import {
+  messageRealtimeEventNames,
+  useMessageRealtime,
+} from "@/app/features/messages/realtime/use-message-realtime"
 
 const message = {
   id: 42,
@@ -88,20 +107,22 @@ describe("Message realtime payload schemas", () => {
 })
 
 function deliver(eventName: string, payload: unknown) {
-  const listener = mocks.listeners.get(eventName)
-  if (!listener) throw new Error(`Missing listener for ${eventName}`)
+  const listeners = mocks.activeListeners.get(eventName)
+  if (!listeners?.length) throw new Error(`Missing active listener for ${eventName}`)
 
-  act(() => listener(payload))
+  act(() => listeners.forEach((listener) => listener(payload)))
 }
 
 describe("useMessageRealtime", () => {
   beforeEach(() => {
-    mocks.listeners.clear()
+    mocks.activeListeners.clear()
+    mocks.historicalListeners.clear()
     mocks.channel.listen.mockClear()
     mocks.getEcho.mockClear()
     mocks.leave.mockClear()
     mocks.privateChannel.mockClear()
     mocks.privateChannel.mockReturnValue(mocks.channel)
+    mocks.leave.mockImplementation(() => mocks.activeListeners.clear())
     mocks.getEcho.mockReturnValue({
       leave: mocks.leave,
       private: mocks.privateChannel,
@@ -132,12 +153,54 @@ describe("useMessageRealtime", () => {
       { initialProps: { onEvent: firstOnEvent } }
     )
 
+    expect(mocks.privateChannel).toHaveBeenCalledOnce()
+    expect(mocks.channel.listen).toHaveBeenCalledTimes(3)
+    expect(mocks.leave).not.toHaveBeenCalled()
+
     rerender({ onEvent: secondOnEvent })
     deliver(".App\\Events\\MessageCreated", { message })
 
     expect(secondOnEvent).toHaveBeenCalledOnce()
     expect(secondOnEvent).toHaveBeenCalledWith({ type: "created", message })
     expect(firstOnEvent).not.toHaveBeenCalled()
+    expect(mocks.privateChannel).toHaveBeenCalledOnce()
+    expect(mocks.channel.listen).toHaveBeenCalledTimes(3)
+    expect(mocks.leave).not.toHaveBeenCalled()
+  })
+
+  it("keeps one active listener per event after StrictMode cleanup and remount", () => {
+    const onEvent = vi.fn()
+    const { unmount } = renderHook(() => useMessageRealtime(onEvent), {
+      wrapper: StrictMode,
+    })
+
+    expect(mocks.privateChannel).toHaveBeenCalledTimes(2)
+    expect(mocks.channel.listen).toHaveBeenCalledTimes(6)
+    expect(mocks.leave).toHaveBeenCalledOnce()
+
+    for (const eventName of Object.values(messageRealtimeEventNames)) {
+      expect(mocks.historicalListeners.get(eventName)).toHaveLength(2)
+      expect(mocks.activeListeners.get(eventName)).toHaveLength(1)
+    }
+
+    deliver(".App\\Events\\MessageCreated", { message })
+
+    expect(onEvent).toHaveBeenCalledOnce()
+    unmount()
+    expect(mocks.leave).toHaveBeenCalledTimes(2)
+  })
+
+  it("does not deliver a callback captured before unmount", () => {
+    const onEvent = vi.fn()
+    const { unmount } = renderHook(() => useMessageRealtime(onEvent))
+    const [createdListener] = mocks.historicalListeners.get(
+      ".App\\Events\\MessageCreated"
+    ) ?? []
+
+    unmount()
+    act(() => createdListener?.({ message }))
+
+    expect(onEvent).not.toHaveBeenCalled()
   })
 
   it("subscribes to exactly the three Message FQCNs and normalizes valid payloads", () => {
