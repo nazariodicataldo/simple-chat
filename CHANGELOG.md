@@ -23,6 +23,12 @@ Il formato e' ispirato a [Keep a Changelog](https://keepachangelog.com/it/1.1.0/
 
 ### Changed
 
+- Allineati fallback CORS, ambiente PHPUnit e feature test al profilo locale
+  HTTPS della SPA, mantenendo il rifiuto delle origini HTTP nel fallback.
+
+- Dopo logout riuscito, le query messaggi TanStack vengono annullate e rimosse
+  prima del login successivo, evitando il flash della lista precedente.
+
 - Il submit del form di invio resta disabilitato quando il messaggio e' vuoto o
   contiene soltanto spazi.
 

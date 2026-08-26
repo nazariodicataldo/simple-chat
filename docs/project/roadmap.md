@@ -8,7 +8,7 @@ Documentazione, convenzioni, workflow agentico, roadmap e Definition of Done.
 
 Bootstrap Laravel e Next.js, PostgreSQL, Sanctum, messaggi (model/migration/API/Form Request/Resource/Policy), cursor pagination, frontend HTTP e primi test. **DoD:** due utenti usano la chat via HTTP e il refresh mostra i nuovi messaggi.
 
-## Milestone 2 — Real-time diretto
+## Milestone 2 — Real-time diretto (completata 2026-08-26)
 
 `MessageCreated`, `MessageUpdated`, `MessageDeleted`, `ShouldBroadcastNow`, private channel e autorizzazione, Reverb, Echo, validazione Zod, deduplicazione e cleanup listener. **DoD:** due browser autenticati comunicano senza refresh.
 

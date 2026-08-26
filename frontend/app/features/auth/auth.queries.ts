@@ -3,6 +3,7 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useRouter } from "next/navigation"
 
+import { messageKeys } from "../messages/message.queries"
 import { currentUser, login, logout, register } from "./auth.service"
 import type { AuthUser, LoginInput, RegisterInput } from "./auth.type"
 
@@ -47,6 +48,8 @@ export function useLogoutMutation() {
     mutationFn: logout,
     onSuccess: async () => {
       queryClient.setQueryData(authQueryKey, null)
+      await queryClient.cancelQueries({ queryKey: messageKeys.all })
+      queryClient.removeQueries({ queryKey: messageKeys.all })
       await queryClient.invalidateQueries({ queryKey: authQueryKey })
       router.refresh()
     },

@@ -22,6 +22,7 @@ import {
   useLoginMutation,
   useLogoutMutation,
 } from "@/app/features/auth/auth.queries"
+import { messageKeys } from "@/app/features/messages/message.queries"
 
 function createWrapper(queryClient: QueryClient) {
   return function Wrapper({ children }: PropsWithChildren) {
@@ -63,5 +64,20 @@ describe("auth mutations", () => {
 
     expect(queryClient.getQueryData(authQueryKey)).toBeNull()
     expect(refresh).toHaveBeenCalledOnce()
+  })
+
+  it("removes message cache but preserves unrelated cache after logout", async () => {
+    const queryClient = new QueryClient()
+    queryClient.setQueryData(messageKeys.lists(), { pages: [], pageParams: [] })
+    queryClient.setQueryData(["preferences", "theme"], "dark")
+    logout.mockResolvedValue(undefined)
+    const { result } = renderHook(() => useLogoutMutation(), {
+      wrapper: createWrapper(queryClient),
+    })
+
+    await act(() => result.current.mutateAsync())
+
+    expect(queryClient.getQueryData(messageKeys.lists())).toBeUndefined()
+    expect(queryClient.getQueryData(["preferences", "theme"])).toBe("dark")
   })
 })

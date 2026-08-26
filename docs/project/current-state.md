@@ -1,10 +1,10 @@
 # Stato corrente
 
-- **Milestone corrente:** Milestone 2 — Real-time diretto con Reverb ed Echo
-- **Ultimo task completato:** M2-007 — Verificare lifecycle realtime con StrictMode.
+- **Milestone corrente:** Milestone 3 — Redis e queue (da pianificare).
+- **Ultimo task completato:** M2-008 — Verificare realtime in due browser.
 - **Task attivo:** nessuno.
-- **Prossimo task suggerito:** M2-008 — Verificare realtime con due browser.
-- **Ultimo aggiornamento:** 2026-08-24.
+- **Prossimo task suggerito:** definire M3-001 per Redis e queue.
+- **Ultimo aggiornamento:** 2026-08-26.
 
 ## Funzionalita' esistenti
 
@@ -14,7 +14,7 @@
 - M1-003 ha introdotto il dominio utente con `first_name`, `last_name`, `username` e `UserResource` camelCase; password e dati sensibili non sono inclusi nella Resource.
 - M1-004 ha introdotto il dominio Message con soft-delete, CRUD HTTP, Resource camelCase, policy di proprietà e test; M1-008 associa ora la creazione all'utente autenticato. Migration e smoke test Postman sono verificati sul database PostgreSQL locale Lerd.
 - M1-006/M1-007 standardizzano le risposte riuscite del CRUD Message con `success`, `data`, `timestamp`, `message` e `code`; `DELETE` conserva `204 No Content`. `GET /api/messages` restituisce 20 record in ordine cronologico con cursor pagination e autore pubblico eager-loaded, senza email.
-- M1-008 ha implementato Sanctum 4.3.3 per SPA cookie/CSRF, CORS con credenziali per `http://localhost:3000`, endpoint register/login/logout/user con risposte riuscite `ApiResponse` e protezione `auth:sanctum` per Message. La verifica backend con test, PHPStan, Pint e Postman è riuscita.
+- M1-008 ha implementato Sanctum 4.3.3 per SPA cookie/CSRF, CORS con credenziali per `https://app.simple-chat.test:3000`, endpoint register/login/logout/user con risposte riuscite `ApiResponse` e protezione `auth:sanctum` per Message. La verifica backend con test, PHPStan, Pint e Postman è riuscita.
 - M1-009 implementa il gate server-side della sessione in `/`, login/register/logout, form auth separati con campi camelCase convertiti nel service, CSRF browser deduplicato con retry singolo su `419` e service Axios server-only con inoltro cookie/origin/referer. Lint, typecheck, build e smoke browser sono riusciti.
 - M1-010 tipizza l'envelope cursor Message, carica le pagine successive con infinite scroll TanStack Query e mostra autore reale nelle bubble. L'invio usa una bubble optimistic con `Sending...`, errore destructive e retry; il profilo autenticato e' visibile sopra la card chat.
 - M1-011 implementa lato frontend le azioni update/delete per i soli messaggi
@@ -66,6 +66,12 @@
   suite frontend e build sono riusciti. Lo smoke manuale HMR/Reverb in due
   browser ha verificato socket Reverb e HMR distinti, autorizzazione del canale,
   unsubscribe/subscribe e una sola bubble dopo Fast Refresh e rientro nella chat.
+- M2-008 ha completato la verifica end-to-end della Milestone 2: Chrome e
+  Firefox incognito, utenti distinti, CRUD realtime bidirezionale, refetch,
+  policy/guest channel auth, cleanup/logout-login e una sola subscription sono
+  verificati. M2-009 elimina il flash cache post-logout annullando e rimuovendo
+  le query messaggi dopo logout riuscito; RED/GREEN, suite frontend e smoke
+  bidirezionale sono riusciti.
 - ADR 0003 fissa HTTPS/WSS come profilo locale predefinito per SPA, API e
   browser-verso-Reverb. Il broadcaster Laravel mantiene il collegamento
   interno HTTP su `localhost:8080` verso Reverb; questa separazione evita
