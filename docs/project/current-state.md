@@ -1,10 +1,10 @@
 # Stato corrente
 
-- **Milestone corrente:** Milestone 3 — Redis e queue (da pianificare).
-- **Ultimo task completato:** M2-008 — Verificare realtime in due browser.
+- **Milestone corrente:** Milestone 3 — Redis e queue (in corso).
+- **Ultimo task completato:** M3-001 — Configurare Redis queue e worker dedicato.
 - **Task attivo:** nessuno.
-- **Prossimo task suggerito:** definire M3-001 per Redis e queue.
-- **Ultimo aggiornamento:** 2026-08-26.
+- **Prossimo task suggerito:** M3-002 — Accodare broadcast Message e proteggere after-commit.
+- **Ultimo aggiornamento:** 2026-08-27.
 
 ## Funzionalita' esistenti
 
