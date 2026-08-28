@@ -1,10 +1,10 @@
 # Stato corrente
 
 - **Milestone corrente:** Milestone 3 — Redis e queue (in corso).
-- **Ultimo task completato:** M3-001 — Configurare Redis queue e worker dedicato.
+- **Ultimo task completato:** M3-002 — Accodare broadcast Message e proteggere after-commit.
 - **Task attivo:** nessuno.
-- **Prossimo task suggerito:** M3-002 — Accodare broadcast Message e proteggere after-commit.
-- **Ultimo aggiornamento:** 2026-08-27.
+- **Prossimo task suggerito:** M3-003 — Documentare prova failure job Redis isolata.
+- **Ultimo aggiornamento:** 2026-08-28.
 
 ## Funzionalita' esistenti
 
@@ -72,6 +72,13 @@
   verificati. M2-009 elimina il flash cache post-logout annullando e rimuovendo
   le query messaggi dopo logout riuscito; RED/GREEN, suite frontend e smoke
   bidirezionale sono riusciti.
+- M3-001 configura Redis come queue predefinita `default` e il worker locale
+  `composer queue:work` con tre tentativi, backoff 5 s e timeout 60 s.
+- M3-002 passa i broadcast `MessageCreated`, `MessageUpdated` e
+  `MessageDeleted` a `ShouldBroadcast` con `afterCommit=true` selettivo.
+  Payload, FQCN, canale privato e contratti HTTP restano invariati; test
+  automatici coprono un solo `BroadcastEvent` queued con FQCN esatto e
+  commit/rollback della queue `database` reale isolata.
 - ADR 0003 fissa HTTPS/WSS come profilo locale predefinito per SPA, API e
   browser-verso-Reverb. Il broadcaster Laravel mantiene il collegamento
   interno HTTP su `localhost:8080` verso Reverb; questa separazione evita
@@ -161,3 +168,8 @@
   Smoke manuale HMR/Reverb riuscito con handshake WSS `101`, autorizzazione
   `200`, nuova subscription `private-chat`, evento `MessageCreated` ricevuto
   e una sola bubble dopo il rientro nella chat.
+- M3-002, 2026-08-28: il fix post-review ha dimostrato in RED che un doppio
+  dispatch passava il test HTTP precedente; ora CREATE, UPDATE e DELETE
+  verificano un solo `BroadcastEvent` e FQCN esatto. Nel runtime Lerd,
+  `composer test` e' riuscito con 35 test e 188 assertion, cosi' come
+  `./vendor/bin/pint --test` e PHPStan con `--memory-limit=512M`.

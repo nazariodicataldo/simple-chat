@@ -5,28 +5,34 @@ use App\Events\MessageDeleted;
 use App\Events\MessageUpdated;
 use App\Models\Message;
 use App\Models\User;
+use Illuminate\Broadcasting\BroadcastEvent;
 use Illuminate\Broadcasting\PrivateChannel;
-use Illuminate\Contracts\Broadcasting\Broadcaster;
-use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
+use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
 use Illuminate\Foundation\Testing\RefreshDatabase;
-use Illuminate\Support\Facades\Broadcast;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Queue;
 
 uses(RefreshDatabase::class);
 
-it('declares Message events for immediate broadcasting', function () {
+it('declares Message events for queued broadcasting after commit', function () {
     $message = Message::factory()->make();
 
     expect(new MessageCreated($message))
-        ->toBeInstanceOf(ShouldBroadcastNow::class)
+        ->toBeInstanceOf(ShouldBroadcast::class)
+        ->and(new MessageCreated($message)->afterCommit)
+        ->toBeTrue()
         ->and(new MessageUpdated($message))
-        ->toBeInstanceOf(ShouldBroadcastNow::class)
+        ->toBeInstanceOf(ShouldBroadcast::class)
+        ->and(new MessageUpdated($message)->afterCommit)
+        ->toBeTrue()
         ->and(new MessageDeleted(1))
-        ->toBeInstanceOf(ShouldBroadcastNow::class);
+        ->toBeInstanceOf(ShouldBroadcast::class)
+        ->and(new MessageDeleted(1)->afterCommit)
+        ->toBeTrue();
 });
 
 it(
-    'broadcasts a created message synchronously with its complete public payload',
+    'queues exactly one created message broadcast with its complete public payload',
     function () {
         $user = User::factory()->create([
             'first_name' => 'Ada',
@@ -34,28 +40,7 @@ it(
             'username' => 'ada-lovelace',
         ]);
 
-        $broadcastPayload = null;
-        $broadcaster = Mockery::mock(Broadcaster::class);
-        $broadcaster
-            ->shouldReceive('broadcast')
-            ->once()
-            ->withArgs(function (
-                array $channels,
-                string $eventName,
-                array $payload,
-            ) use (&$broadcastPayload): bool {
-                $broadcastPayload = $payload;
-
-                return $channels[0] instanceof PrivateChannel &&
-                    $channels[0]->name === 'private-chat' &&
-                    $eventName === MessageCreated::class;
-            });
-
-        Broadcast::extend('recording', fn () => $broadcaster);
-        config([
-            'broadcasting.default' => 'recording',
-            'broadcasting.connections.recording' => ['driver' => 'recording'],
-        ]);
+        Queue::fake();
 
         $this->actingAs($user, 'sanctum')
             ->postJson('/api/messages', [
@@ -63,26 +48,37 @@ it(
             ])
             ->assertCreated();
 
-        $message = Message::findOrFail($broadcastPayload['message']['id']);
+        $message = Message::firstOrFail();
 
-        expect($broadcastPayload['message'])->toBe([
-            'id' => $message->id,
-            'userId' => $user->id,
-            'text' => 'Hello, group!',
-            'createdAt' => $message->created_at?->toISOString(),
-            'updatedAt' => $message->updated_at?->toISOString(),
-            'user' => [
-                'id' => $user->id,
-                'firstName' => 'Ada',
-                'lastName' => 'Lovelace',
-                'username' => 'ada-lovelace',
-            ],
-        ]);
+        Queue::assertPushed(BroadcastEvent::class, 1);
+
+        Queue::assertPushed(BroadcastEvent::class, function (BroadcastEvent $job) use ($message, $user): bool {
+            $event = $job->event;
+            $channels = $event->broadcastOn();
+
+            return get_class($event) === MessageCreated::class &&
+                $job->afterCommit === true &&
+                $channels instanceof PrivateChannel &&
+                $channels->name === 'private-chat' &&
+                $event->broadcastWith()['message'] === [
+                    'id' => $message->id,
+                    'userId' => $user->id,
+                    'text' => 'Hello, group!',
+                    'createdAt' => $message->created_at?->toISOString(),
+                    'updatedAt' => $message->updated_at?->toISOString(),
+                    'user' => [
+                        'id' => $user->id,
+                        'firstName' => 'Ada',
+                        'lastName' => 'Lovelace',
+                        'username' => 'ada-lovelace',
+                    ],
+                ];
+        });
     },
 );
 
 it(
-    'broadcasts an updated message synchronously with its complete public payload',
+    'queues exactly one updated message broadcast with its complete public payload',
     function () {
         $user = User::factory()->create([
             'first_name' => 'Grace',
@@ -93,28 +89,7 @@ it(
             ->for($user)
             ->create(['text' => 'Original text']);
 
-        $broadcastPayload = null;
-        $broadcaster = Mockery::mock(Broadcaster::class);
-        $broadcaster
-            ->shouldReceive('broadcast')
-            ->once()
-            ->withArgs(function (
-                array $channels,
-                string $eventName,
-                array $payload,
-            ) use (&$broadcastPayload): bool {
-                $broadcastPayload = $payload;
-
-                return $channels[0] instanceof PrivateChannel &&
-                    $channels[0]->name === 'private-chat' &&
-                    $eventName === MessageUpdated::class;
-            });
-
-        Broadcast::extend('recording', fn () => $broadcaster);
-        config([
-            'broadcasting.default' => 'recording',
-            'broadcasting.connections.recording' => ['driver' => 'recording'],
-        ]);
+        Queue::fake();
 
         $this->actingAs($user, 'sanctum')
             ->putJson("/api/messages/{$message->id}", [
@@ -124,50 +99,55 @@ it(
 
         $message = Message::findOrFail($message->id);
 
-        expect($broadcastPayload['message'])->toBe([
-            'id' => $message->id,
-            'userId' => $user->id,
-            'text' => 'Edited text',
-            'createdAt' => $message->created_at?->toISOString(),
-            'updatedAt' => $message->updated_at?->toISOString(),
-            'user' => [
-                'id' => $user->id,
-                'firstName' => 'Grace',
-                'lastName' => 'Hopper',
-                'username' => 'grace-hopper',
-            ],
-        ]);
+        Queue::assertPushed(BroadcastEvent::class, 1);
+
+        Queue::assertPushed(BroadcastEvent::class, function (BroadcastEvent $job) use ($message, $user): bool {
+            $event = $job->event;
+            $channels = $event->broadcastOn();
+
+            return get_class($event) === MessageUpdated::class &&
+                $job->afterCommit === true &&
+                $channels instanceof PrivateChannel &&
+                $channels->name === 'private-chat' &&
+                $event->broadcastWith()['message'] === [
+                    'id' => $message->id,
+                    'userId' => $user->id,
+                    'text' => 'Edited text',
+                    'createdAt' => $message->created_at?->toISOString(),
+                    'updatedAt' => $message->updated_at?->toISOString(),
+                    'user' => [
+                        'id' => $user->id,
+                        'firstName' => 'Grace',
+                        'lastName' => 'Hopper',
+                        'username' => 'grace-hopper',
+                    ],
+                ];
+        });
     },
 );
 
-it('broadcasts the identifier of a deleted message', function () {
+it('queues exactly one deleted message broadcast with its identifier', function () {
     $user = User::factory()->create();
     $message = Message::factory()->for($user)->create();
 
-    $broadcaster = Mockery::mock(Broadcaster::class);
-    $broadcaster
-        ->shouldReceive('broadcast')
-        ->once()
-        ->withArgs(function (
-            array $channels,
-            string $eventName,
-            array $payload,
-        ) use ($message): bool {
-            return $channels[0] instanceof PrivateChannel &&
-                $channels[0]->name === 'private-chat' &&
-                $eventName === MessageDeleted::class &&
-                $payload['messageId'] === $message->id;
-        });
-
-    Broadcast::extend('recording', fn () => $broadcaster);
-    config([
-        'broadcasting.default' => 'recording',
-        'broadcasting.connections.recording' => ['driver' => 'recording'],
-    ]);
+    Queue::fake();
 
     $this->actingAs($user, 'sanctum')
         ->deleteJson("/api/messages/{$message->id}")
         ->assertNoContent();
+
+    Queue::assertPushed(BroadcastEvent::class, 1);
+
+    Queue::assertPushed(BroadcastEvent::class, function (BroadcastEvent $job) use ($message): bool {
+        $event = $job->event;
+        $channels = $event->broadcastOn();
+
+        return get_class($event) === MessageDeleted::class &&
+            $job->afterCommit === true &&
+            $channels instanceof PrivateChannel &&
+            $channels->name === 'private-chat' &&
+            $event->broadcastWith() === ['messageId' => $message->id];
+    });
 });
 
 it(

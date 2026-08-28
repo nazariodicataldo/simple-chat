@@ -23,6 +23,10 @@ Il formato e' ispirato a [Keep a Changelog](https://keepachangelog.com/it/1.1.0/
 
 ### Changed
 
+- I broadcast Message sono ora job queued con protezione after-commit
+  selettiva, evitando eventi fantasma in caso di rollback senza cambiare il
+  contratto HTTP o realtime.
+
 - Allineati fallback CORS, ambiente PHPUnit e feature test al profilo locale
   HTTPS della SPA, mantenendo il rifiuto delle origini HTTP nel fallback.
 

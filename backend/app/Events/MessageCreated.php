@@ -4,13 +4,15 @@ namespace App\Events;
 
 use App\Models\Message;
 use Illuminate\Broadcasting\PrivateChannel;
-use Illuminate\Contracts\Broadcasting\ShouldBroadcastNow;
+use Illuminate\Contracts\Broadcasting\ShouldBroadcast;
 use Illuminate\Foundation\Events\Dispatchable;
 use Illuminate\Queue\SerializesModels;
 
-class MessageCreated implements ShouldBroadcastNow
+class MessageCreated implements ShouldBroadcast
 {
     use Dispatchable, SerializesModels;
+
+    public bool $afterCommit = true;
 
     public function __construct(public Message $message) {}
 
