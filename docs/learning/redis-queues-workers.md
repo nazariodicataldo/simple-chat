@@ -28,8 +28,10 @@ e after-commit; la catena runtime completa resta una verifica successiva.
 ## M3-001: una connection Redis e una queue `default`
 
 Una *connection* sceglie il backend; una *queue* e' la pila di job in quel
-backend. Il progetto usa intenzionalmente una sola connection Redis e una sola
-queue `default`: nessuna priorita', coda dedicata, Horizon o Docker.
+backend. La chat usa intenzionalmente una sola connection Redis e una sola
+queue applicativa `default`: nessuna priorita', coda dedicata di produzione,
+Horizon o Docker. M3-003 aggiunge soltanto `m3-failure-test`, isolata e
+test/dev-only: non e' una seconda queue della chat e non cambia `default`.
 
 La configurazione minima in `backend/.env.example` e':
 
@@ -49,7 +51,7 @@ questi valori e mantiene `after_commit=false` come default della connection
 Redis. Non e' un errore: gli altri job sono inseriti subito salvo un override
 esplicito del job/evento.
 
-### Worker locale
+### Worker applicativo locale
 
 Da `backend/` il solo worker M3 e':
 
@@ -78,8 +80,8 @@ senza riportare secret.
 
 `retry_after` deve superare il timeout. Con `60 < 90`, Redis non rimette in
 circolo un job mentre un worker potrebbe ancora terminarne il tentativo. I tre
-tentativi e il backoff di 5 secondi sono la politica M3, ma retry reali e failed
-job non sono oggetto di M3-001/M3-002.
+tentativi e il backoff di 5 secondi sono la politica M3. M3-001/M3-002 non li
+provano su Redis reale; quella prova isolata arriva in M3-003.
 
 Un errore comune e' confondere `block_for=5` (queue vuota) con il backoff
 (tentativo fallito), oppure impostare `retry_after <= timeout`, con possibile
@@ -176,9 +178,131 @@ Per tutti e tre gli eventi completa: "prima del commit il job non e' in
 `jobs` perche' ...". Poi spiega perche' il rollback lascia zero job, e quale
 scenario esiste solo nel test invece che nei controller attuali.
 
+## M3-003: failure job Redis isolato
+
+Un job puo' fallire per un errore del suo `handle()`, per esempio una
+dipendenza temporaneamente irraggiungibile. Il worker non rende quel fallimento
+invisibile: applica il numero di tentativi e il backoff configurati; esauriti i
+tre tentativi, Laravel salva il record in PostgreSQL `failed_jobs` tramite il
+driver `database-uuids`.
+
+M3-003 non simula il fallimento del broadcast e non coinvolge Reverb, Echo o il
+browser. Usa invece il fixture test/dev `Tests\Fixtures\M3FailureTestJob`, che
+implementa `ShouldQueue`, usa Redis / `m3-failure-test`, genera un marker non
+sensibile e lancia sempre una `RuntimeException`. E' uno strumento di prova,
+non un job applicativo sotto `app/` e non deve essere referenziato dal codice
+di produzione.
+
+Il percorso osservabile e':
+
+```text
+fixture -> Redis/m3-failure-test -> tentativo 1 fallisce
+	        -> backoff configurato 5 s, poi retry osservabile
+	        -> backoff configurato 5 s, poi retry osservabile
+	        -> PostgreSQL/failed_jobs (UUID, connection, queue, eccezione)
+```
+
+`--backoff=5` e' l'attesa tra tentativi falliti. Non e' `block_for=5`, che
+agisce soltanto mentre una queue e' vuota; `--timeout=60` e' invece il limite
+di durata di ciascun singolo tentativo.
+
+Il valore di backoff non coincide necessariamente con l'intervallo mostrato
+nei log del worker. Un job ritardato puo' diventare disponibile durante
+`block_for=5`; se il `BLPOP` termina senza job, il worker applica anche il suo
+`--sleep` predefinito di 3 s prima del pop successivo. Quindi una prova puo'
+mostrare circa 8 s tra i tentativi (o 9 s con timestamp stampati al solo
+secondo), pur mantenendo `--backoff=5` correttamente configurato.
+
+### Configurazione e worker di prova
+
+Servono Redis e PostgreSQL Lerd avviati, `QUEUE_FAILED_DRIVER=database-uuids`
+e l'autoload di sviluppo che mappa `Tests\` su `tests/`. Lo script dedicato e':
+
+```bash
+composer queue:failure-test
+```
+
+Esegue esattamente:
+
+```bash
+php artisan queue:work redis --queue=m3-failure-test --tries=3 --backoff=5 --timeout=60
+```
+
+Non sostituisce `composer queue:work`: quest'ultimo resta il worker della chat
+su `default`. Prima della prova verificare che non sia gia' attivo un altro
+worker su `m3-failure-test`, altrimenti i tentativi non sarebbero osservabili
+nella finestra corretta.
+
+### Prova manuale autorevole
+
+La suite Pest standard usa SQLite in memoria e `QUEUE_CONNECTION=sync`;
+`Queue::fake()` intercetta il dispatch ma non esegue un worker, il backoff o la
+scrittura in `failed_jobs`. Il test automatico del fixture prova quindi solo il
+suo contratto: `ShouldQueue`, connection/queue dedicate ed eccezione attesa.
+Redis reale, tre tentativi e failed job richiedono questa procedura Lerd:
+
+1. Da `backend/`, avviare `lerd start`.
+2. Se necessario, eseguire `composer dump-autoload`; poi dispatchare il
+   fixture con:
+
+   ```bash
+   php artisan tinker --execute='Tests\Fixtures\M3FailureTestJob::dispatch();'
+   ```
+
+3. In un altro terminale, avviare `composer queue:failure-test` e attendere i
+   tre fallimenti. Verificare `--backoff=5` nello script; i retry sono
+   disponibili dopo 5 s, ma nei log possono apparire circa 8 s dopo (o 9 s con
+   timestamp arrotondati), per il ritardo operativo spiegato sopra.
+4. Eseguire il comando Artisan nativo:
+
+   ```bash
+   php artisan queue:failed
+   ```
+
+   Laravel mostra ID/UUID, connection, queue, classe e data. Il flag nativo
+   `--json` cambia soltanto il formato di questi stessi campi.
+5. Copiare l'UUID del solo record con connection `redis`, queue
+   `m3-failure-test` e classe del fixture. Per vedere il marker, che
+   `queue:failed` non espone, interrogare read-only quel solo record:
+
+   ```bash
+   php artisan tinker --execute='dump(Illuminate\Support\Facades\DB::table("failed_jobs")->select("uuid", "connection", "queue", "exception")->where("uuid", "<UUID>")->first());'
+   ```
+
+6. Usare lo stesso UUID nel comando Artisan nativo di cleanup:
+
+   ```bash
+   php artisan queue:forget <UUID>
+   php artisan queue:failed
+   ```
+
+   La seconda lista non deve piu' contenere il job di prova.
+
+Non eseguire `queue:retry` in M3-003: il fixture fallisce sempre, quindi un
+retry produrrebbe soltanto un nuovo fallimento. Il recupero riuscito dopo il
+ripristino di Reverb e' la prova distinta di M3-004.
+
+### Errori comuni e production
+
+Non usare `default`, non scegliere un UUID di un failed job estraneo e non
+dedurre il marker da `queue:failed`: il comando non mostra payload o eccezione.
+Non attribuire inoltre retry, backoff o failed job alla fake Laravel.
+
+In produzione un supervisore mantiene i worker applicativi in esecuzione e il
+deploy configura il driver dei failed jobs. Il fixture e la queue
+`m3-failure-test` restano locali e test/dev-only; non sono una policy di retry
+o una coda di produzione. Horizon, dashboard e automazione CI restano fuori
+scope.
+
+### Esercizio M3-003
+
+Spiega perche' il backoff di 5 s non e' `block_for=5`. Poi indica quale campo
+di `queue:failed` useresti per `queue:forget` e perche' il marker richiede la
+query read-only del record esatto.
+
 ## Documentazione ufficiale
 
 - [Laravel 13 — Queues](https://laravel.com/docs/13.x/queues): Redis, worker,
-  timeout, transazioni e test.
+  timeout, transazioni, failed job e test.
 - [Laravel 13 — Broadcasting](https://laravel.com/docs/13.x/broadcasting):
   `ShouldBroadcast` ed eventi broadcast.

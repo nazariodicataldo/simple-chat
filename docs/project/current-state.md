@@ -1,9 +1,9 @@
 # Stato corrente
 
 - **Milestone corrente:** Milestone 3 — Redis e queue (in corso).
-- **Ultimo task completato:** M3-002 — Accodare broadcast Message e proteggere after-commit.
+- **Ultimo task completato:** M3-003 — Documentare prova failure job Redis isolata.
 - **Task attivo:** nessuno.
-- **Prossimo task suggerito:** M3-003 — Documentare prova failure job Redis isolata.
+- **Prossimo task suggerito:** selezionare il prossimo task della Milestone 3.
 - **Ultimo aggiornamento:** 2026-08-28.
 
 ## Funzionalita' esistenti
@@ -79,6 +79,11 @@
   Payload, FQCN, canale privato e contratti HTTP restano invariati; test
   automatici coprono un solo `BroadcastEvent` queued con FQCN esatto e
   commit/rollback della queue `database` reale isolata.
+- M3-003 aggiunge il fixture dev/test `Tests\Fixtures\M3FailureTestJob` e il
+  worker Composer dedicato alla sola queue Redis `m3-failure-test`. La prova
+  Lerd ha verificato tre fallimenti, il record `failed_jobs` con UUID,
+  connection, queue e marker non sensibile nell'eccezione, quindi il cleanup
+  selettivo con `queue:forget`; non coinvolge Reverb, Echo o browser.
 - ADR 0003 fissa HTTPS/WSS come profilo locale predefinito per SPA, API e
   browser-verso-Reverb. Il broadcaster Laravel mantiene il collegamento
   interno HTTP su `localhost:8080` verso Reverb; questa separazione evita
@@ -173,3 +178,8 @@
   verificano un solo `BroadcastEvent` e FQCN esatto. Nel runtime Lerd,
   `composer test` e' riuscito con 35 test e 188 assertion, cosi' come
   `./vendor/bin/pint --test` e PHPStan con `--memory-limit=512M`.
+- M3-003, 2026-08-28: RED/GREEN del fixture riusciti nel runtime Lerd; la
+  prova Redis/PostgreSQL locale ha prodotto tre tentativi e un failed job
+  isolato, poi ha verificato marker, UUID, connection e queue prima del
+  cleanup. `composer test` e' riuscito con 36 test e 194 assertion; Pint e
+  PHPStan non hanno segnalato errori.
