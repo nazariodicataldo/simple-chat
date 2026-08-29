@@ -23,6 +23,10 @@ Il formato e' ispirato a [Keep a Changelog](https://keepachangelog.com/it/1.1.0/
 
 ### Changed
 
+- Completata la verifica end-to-end dei broadcast queued su Redis con worker,
+  retry, `failed_jobs`, Reverb ed Echo; il percorso reale e' documentato in
+  M3-004.
+
 - I broadcast Message sono ora job queued con protezione after-commit
   selettiva, evitando eventi fantasma in caso di rollback senza cambiare il
   contratto HTTP o realtime.

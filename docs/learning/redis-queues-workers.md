@@ -4,8 +4,10 @@ Questa guida accompagna M3 passo per passo. Dopo il real-time diretto della
 Milestone 2, un broadcast eseguito nella richiesta HTTP puo' coinvolgerla se
 Reverb e' lento o irraggiungibile. M3-001 usa Redis per conservare il lavoro
 pendente e un worker per eseguirlo; M3-002 fa entrare in quel percorso i soli
-broadcast Message. PostgreSQL resta la fonte persistente di verita': Redis non
-diventa il database della chat e non sostituisce API HTTP, policy, Reverb o Echo.
+broadcast Message; M3-004 verifica la catena reale fino al browser e il
+recupero di un broadcast fallito. PostgreSQL resta la fonte persistente di
+verita': Redis non diventa il database della chat e non sostituisce API HTTP,
+policy, Reverb o Echo.
 
 ## Ruoli e percorso
 
@@ -300,9 +302,124 @@ Spiega perche' il backoff di 5 s non e' `block_for=5`. Poi indica quale campo
 di `queue:failed` useresti per `queue:forget` e perche' il marker richiede la
 query read-only del record esatto.
 
+## M3-004: prova della catena reale e recupero
+
+Un test con `Queue::fake()` puo' dimostrare che Laravel ha chiesto di accodare
+un `BroadcastEvent`, ma non che Redis lo ha conservato, il worker lo ha
+eseguito, Reverb lo ha ricevuto e Echo lo ha mostrato in un altro browser.
+M3-004 non aggiunge codice alla chat: separa e osserva questi confini nel
+runtime locale reale.
+
+```text
+HTTP riuscito -> PostgreSQL -> Redis/default -> queue:work -> Reverb -> Echo -> browser B
+```
+
+Un `201` o `200` prova la mutazione HTTP e la persistenza in PostgreSQL. Non
+prova ancora che B abbia ricevuto l'evento. Allo stesso modo, un job prelevato
+dal worker non prova da solo che Reverb sia raggiungibile o che B sia ancora
+sottoscritto al canale privato.
+
+### Tre scenari, tre osservabili
+
+Nel percorso sano, A crea, modifica e cancella un proprio Message con worker
+attivo; B deve osservare ogni evento una sola volta. Cinque secondi sono una
+soglia pratica dello smoke locale, non una promessa di latenza o uno SLA.
+
+Con worker fermo e Reverb attivo, A riceve comunque la risposta HTTP e vede lo
+stato canonico: PostgreSQL e' la fonte di verita'. Redis conserva invece il
+`BroadcastEvent` pendente; B non deve ancora vedere la nuova bubble. Quando
+`composer queue:work` torna attivo, B riceve il lavoro pendente. Questo prova
+che non serve ripetere la richiesta HTTP per recuperare un worker fermo.
+
+Con Reverb fermo, il worker non riesce a completare il broadcast. Applica i tre
+tentativi configurati e, dopo l'ultimo fallimento, Laravel salva il job in
+PostgreSQL `failed_jobs`. Il backoff configurato e' 5 s; il tempo visibile nei
+log puo' essere maggiore, per esempio circa 8 s, per l'interazione con
+`block_for` e `--sleep`. Si annota quindi il tempo osservato, senza dedurre che
+il valore di configurazione sia diverso.
+
+### Failed job e retry selettivo
+
+Prima dello scenario Reverb, eseguire `php artisan queue:failed` e annotare la
+baseline. Dopo i tre fallimenti, la lista individua un nuovo UUID: connection
+`redis`, queue `default` e job broadcast. Non scegliere o rimuovere job
+preesistenti.
+
+`queue:failed` non mostra il payload o l'eccezione completi. Per collegare il
+record al Message di prova, ispezionare in Tinker soltanto il nuovo UUID, in
+sola lettura:
+
+```bash
+php artisan tinker --execute='dump(Illuminate\Support\Facades\DB::table("failed_jobs")->select("uuid", "connection", "queue", "payload", "exception", "failed_at")->where("uuid", "<UUID>")->first());'
+```
+
+Il payload e l'eccezione servono per la diagnosi locale; nel task si riportano
+solo UUID, connection, queue, ID del Message e metadati non sensibili. Non
+copiarvi cookie, token, secret o contenuti non necessari.
+
+Dopo il riavvio di Reverb, il retry riguarda esclusivamente quel record:
+
+```bash
+php artisan queue:retry <UUID>
+```
+
+Questo non e' il pulsante "riprova" della UI e non e' una garanzia di consegna
+esattamente una volta. E' il recupero server-side di un job che prima non poteva
+raggiungere Reverb. Al termine il failed job ritentato deve scomparire; la lista
+dei failed job torna alla baseline e il Message di prova viene eliminato con
+worker e Reverb attivi.
+
+### Reverb, Echo e riconnessione
+
+Fermare Reverb chiude intenzionalmente il socket WSS dei browser. Una
+disconnessione o un errore di trasporto in quel momento e' atteso: documenta
+che il server WebSocket non e' disponibile e non equivale a un errore
+applicativo della chat.
+
+Quando Reverb torna disponibile, Echo con il client Pusher prova a
+riconnettersi e ripristina la sottoscrizione gia' registrata. Poiche'
+`private-chat` e' privato, il nuovo socket richiede di nuovo
+`POST /broadcasting/auth`; l'osservabile finale e' WSS ristabilito, auth `200`
+e `pusher_internal:subscription_succeeded`, senza refresh di A o B. Solo dopo
+questa sequenza il `queue:retry` prova che il browser B puo' ricevere il
+broadcast recuperato.
+
+Un refresh non e' una soluzione della prova: rimonta la pagina e nasconde se la
+connessione originale non si e' ripresa. Se Echo non torna sottoscritto dopo
+un'attesa ragionevole, e' un difetto riproducibile da registrare separatamente,
+non una modifica da introdurre dentro M3-004.
+
+### Limiti ed errori comuni
+
+Redis e il worker non danno ordering globale o consegna exactly-once. Un create
+fallito, poi una delete riuscita, seguito dal retry del create puo' mostrare un
+evento vecchio dopo uno nuovo: questa chat non ha tombstone o versioning per
+correggerlo. M3 accetta il limite, non lo forza nello smoke e non lo dichiara
+risolto.
+
+Non confondere inoltre: risposta HTTP con ricezione browser; disconnessione WSS
+attesa durante lo stop con errore persistente dopo il recupero; UUID del job di
+prova con un failed job preesistente; `queue:retry` server-side con un retry UI.
+Non usare `queue:flush`, cleanup bulk o refresh dei browser per ottenere un
+risultato apparente.
+
+In produzione un supervisore mantiene worker e Reverb disponibili, monitora
+log e failed job e definisce procedure di recovery. Questi strumenti operativi,
+Horizon, code multiple, ordering affidabile e una UI per il retry restano fuori
+scope di questa milestone locale.
+
+### Esercizio M3-004
+
+Per ciascuno scenario indica quale fatto prova separatamente HTTP,
+PostgreSQL/Redis, worker, Reverb/Echo e browser B. Poi spiega perche' il
+reconnect deve precedere `queue:retry`, e perche' un refresh non dimostra il
+reconnect automatico.
+
 ## Documentazione ufficiale
 
 - [Laravel 13 — Queues](https://laravel.com/docs/13.x/queues): Redis, worker,
   timeout, transazioni, failed job e test.
 - [Laravel 13 — Broadcasting](https://laravel.com/docs/13.x/broadcasting):
   `ShouldBroadcast` ed eventi broadcast.
+- [Pusher JS — Connection states](https://github.com/pusher/pusher-js#connection-states):
+  reconnessione e stati del client usato da Echo/Reverb.

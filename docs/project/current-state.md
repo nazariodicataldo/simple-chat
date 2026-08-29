@@ -1,10 +1,10 @@
 # Stato corrente
 
-- **Milestone corrente:** Milestone 3 — Redis e queue (in corso).
-- **Ultimo task completato:** M3-003 — Documentare prova failure job Redis isolata.
+- **Milestone corrente:** Milestone 3 — Redis e queue (completata 2026-08-29).
+- **Ultimo task completato:** M3-004 — Verificare broadcast Redis, worker e retry.
 - **Task attivo:** nessuno.
-- **Prossimo task suggerito:** selezionare il prossimo task della Milestone 3.
-- **Ultimo aggiornamento:** 2026-08-28.
+- **Prossimo task suggerito:** valutare l'apertura di Milestone 4 — Horizon.
+- **Ultimo aggiornamento:** 2026-08-29.
 
 ## Funzionalita' esistenti
 
@@ -88,8 +88,8 @@
   browser-verso-Reverb. Il broadcaster Laravel mantiene il collegamento
   interno HTTP su `localhost:8080` verso Reverb; questa separazione evita
   mixed content e conserva semplice il traffico non esposto.
-- Lerd configura PostgreSQL, Redis e Mailpit locali. Non sono ancora
-  implementati/documentati chat completa, Echo, queue, Docker o CI.
+- Lerd configura PostgreSQL, Redis e Mailpit locali. Docker e CI non sono ancora
+  implementati.
 
 ## Test esistenti
 
@@ -183,3 +183,9 @@
   isolato, poi ha verificato marker, UUID, connection e queue prima del
   cleanup. `composer test` e' riuscito con 36 test e 194 assertion; Pint e
   PHPStan non hanno segnalato errori.
+- M3-004, 2026-08-29: smoke end-to-end riuscito con worker fermo/attivo e
+  Reverb fermo/riavviato. Sono verificati job pendente, tre failure Redis,
+  `failed_jobs`, Tinker read-only, reconnect Echo, `queue:retry`, cleanup e
+  assenza di duplicati. `composer test` (36 test, 194 assertion), Pint,
+  PHPStan, `pnpm test` (15 file, 85 test), lint, typecheck e build sono
+  riusciti.
