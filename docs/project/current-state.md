@@ -1,10 +1,10 @@
 # Stato corrente
 
-- **Milestone corrente:** Milestone 3 — Redis e queue (completata 2026-08-29).
-- **Ultimo task completato:** M3-004 — Verificare broadcast Redis, worker e retry.
+- **Milestone corrente:** Milestone 4 — Horizon (in corso).
+- **Ultimo task completato:** M4-001 — Installare e configurare Horizon locale.
 - **Task attivo:** nessuno.
-- **Prossimo task suggerito:** valutare l'apertura di Milestone 4 — Horizon.
-- **Ultimo aggiornamento:** 2026-08-29.
+- **Prossimo task suggerito:** M4-002 — Proteggere la dashboard Horizon.
+- **Ultimo aggiornamento:** 2026-09-01.
 
 ## Funzionalita' esistenti
 
@@ -84,6 +84,11 @@
   Lerd ha verificato tre fallimenti, il record `failed_jobs` con UUID,
   connection, queue e marker non sensibile nell'eccezione, quindi il cleanup
   selettivo con `queue:forget`; non coinvolge Reverb, Echo o browser.
+- M4-001 installa Horizon `v5.48.3` e rende `composer horizon` il consumer
+  locale canonico di `redis/default`: il solo supervisor `local.chat-default`
+  usa `simple`, un processo e la politica M3 (3 tentativi, backoff 5 s,
+  timeout 60 s). `composer queue:work` resta diagnostico e non va eseguito in
+  parallelo; M4-002 proteggera' la dashboard locale.
 - ADR 0003 fissa HTTPS/WSS come profilo locale predefinito per SPA, API e
   browser-verso-Reverb. Il broadcaster Laravel mantiene il collegamento
   interno HTTP su `localhost:8080` verso Reverb; questa separazione evita
@@ -93,6 +98,10 @@
 
 ## Test esistenti
 
+- Backend, M4-001: `composer test` ha superato 36 test e 194 assertion nel
+  runtime Lerd; Pint e PHPStan sono riusciti senza errori. `composer horizon`
+  e `horizon:status` hanno verificato il master locale, poi arrestato con
+  `horizon:terminate`.
 - Backend: Pest verificato localmente con `composer test`: 13 test superati, 87 assertion (M1-007, 2026-08-10).
 - Backend, M1-008: `composer test` verificato localmente con PHP 8.5 Lerd (20 test, 140 assertion); PHPStan con `--memory-limit=512M` riuscito (34/34, nessun errore). Smoke test Postman per Sanctum cookie/CSRF riuscito.
 - Frontend: Vitest configurato con jsdom e React Testing Library; M1-005 verifica chat e schema Zod con 6 test.
