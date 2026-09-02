@@ -58,6 +58,7 @@ type MutationCallbacks = {
     createdAt: string
     updatedAt: string
     deletedAt: null
+    user?: typeof currentUser
   }) => void
 }
 
@@ -113,6 +114,47 @@ describe("ChatPage", () => {
     expect(screen.getByRole("alert")).toHaveTextContent("Message updated")
     expect(screen.getByRole("alert")).toHaveClass("text-emerald-700")
     expect(scrollIntoView).not.toHaveBeenCalled()
+  })
+
+  it("keeps the author rendered when an update response replaces a local message", async () => {
+    const callbacks: MutationCallbacks[] = []
+    updateMutate.mockImplementation((_input, nextCallbacks) => callbacks.push(nextCallbacks))
+
+    render(<ChatPage currentUser={currentUser} />)
+    const onRealtimeEvent = useMessageRealtime.mock.calls[0][0]
+
+    act(() => onRealtimeEvent({
+      type: "created",
+      message: {
+        id: 21,
+        userId: currentUser.id,
+        text: "Original",
+        createdAt: "2026-08-12T10:00:00.000Z",
+        updatedAt: "2026-08-12T10:00:00.000Z",
+        user: currentUser,
+      },
+    }))
+
+    fireEvent.click(screen.getByRole("button", { name: "Message actions" }))
+    fireEvent.click(await screen.findByRole("button", { name: "Edit message" }))
+    fireEvent.change(screen.getByRole("textbox", { name: "Message text" }), {
+      target: { value: "Changed" },
+    })
+    fireEvent.click(screen.getByRole("button", { name: "Save" }))
+    await waitFor(() => expect(callbacks).toHaveLength(1))
+
+    act(() => callbacks[0].onSuccess?.({
+      id: 21,
+      userId: currentUser.id,
+      text: "Changed",
+      createdAt: "2026-08-12T10:00:00.000Z",
+      updatedAt: "2026-08-12T10:01:00.000Z",
+      deletedAt: null,
+      user: currentUser,
+    }))
+
+    expect(screen.getByLabelText(/Message from Felix Miller/)).toHaveTextContent("Changed")
+    expect(screen.getByLabelText(/Message from Felix Miller/)).toHaveTextContent("Felix Miller")
   })
 
   it("disables every edit dialog close action while the update is pending", async () => {

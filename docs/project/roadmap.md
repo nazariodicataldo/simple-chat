@@ -16,7 +16,7 @@ Bootstrap Laravel e Next.js, PostgreSQL, Sanctum, messaggi (model/migration/API/
 
 Redis, `ShouldBroadcast`, queue, `queue:work`, job broadcasting, retry, failed jobs e introduzione ragionata di `after_commit`. **DoD:** broadcasting effettivamente attraverso Redis e worker.
 
-## Milestone 4 — Horizon
+## Milestone 4 — Horizon (completata 2026-09-02)
 
 Installazione, dashboard protetta e worker gestiti/osservabili tramite Horizon. **DoD:** job completati e falliti sono osservabili e gestibili.
 

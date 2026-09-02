@@ -19,6 +19,11 @@ it('creates a message for the authenticated user and ignores a client user id', 
         ->assertJsonPath('success', true)
         ->assertJsonPath('data.userId', $user->id)
         ->assertJsonPath('data.text', 'Hello, group!')
+        ->assertJsonPath('data.user.id', $user->id)
+        ->assertJsonPath('data.user.firstName', $user->first_name)
+        ->assertJsonPath('data.user.lastName', $user->last_name)
+        ->assertJsonPath('data.user.username', $user->username)
+        ->assertJsonMissing(['email' => $user->email])
         ->assertJsonPath('message', null)
         ->assertJsonPath('code', 201)
         ->assertJsonStructure(['timestamp']);
@@ -123,6 +128,11 @@ it('allows the owner to view, update, and delete a message', function () {
         ->assertOk()
         ->assertJsonPath('success', true)
         ->assertJsonPath('data.text', 'Edited text')
+        ->assertJsonPath('data.user.id', $user->id)
+        ->assertJsonPath('data.user.firstName', $user->first_name)
+        ->assertJsonPath('data.user.lastName', $user->last_name)
+        ->assertJsonPath('data.user.username', $user->username)
+        ->assertJsonMissing(['email' => $user->email])
         ->assertJsonPath('message', null)
         ->assertJsonPath('code', 200)
         ->assertJsonStructure(['timestamp']);

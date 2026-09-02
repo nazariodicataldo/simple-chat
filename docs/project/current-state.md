@@ -1,9 +1,10 @@
 # Stato corrente
 
-- **Milestone corrente:** Milestone 4 — Horizon (in corso).
-- **Ultimo task completato:** M4-002 — Proteggere la dashboard Horizon.
+- **Milestone corrente:** Milestone 4 — Horizon (completata 2026-09-02).
+- **Ultimo task completato:** M4-004 — Verificare job Horizon e recupero reale.
 - **Task attivo:** nessuno.
-- **Prossimo task suggerito:** M4-004 — Verificare job Horizon e recupero reale.
+- **Task bloccato:** nessuno.
+- **Prossimo task suggerito:** pianificare Milestone 5 — Docker.
 - **Ultimo aggiornamento:** 2026-09-02.
 
 ## Funzionalita' esistenti
@@ -93,6 +94,10 @@
   feature test. M4-002 protegge la dashboard anche in `local` con una lista
   configurabile di email: guest e utenti fuori lista ricevono `403`, mentre la
   sessione SPA HTTPS di `admin@admin.com` accede alla dashboard.
+- M4-005 risolve ISS-004: CREATE e UPDATE caricano l'autore pubblico prima
+  della serializzazione HTTP. M4-004 completa la Milestone 4: Horizon resta il
+  solo consumer locale, rende visibili job completati e falliti e consente il
+  retry selettivo dopo il recupero di Reverb, con consegna Echo senza refresh.
 - ADR 0003 fissa HTTPS/WSS come profilo locale predefinito per SPA, API e
   browser-verso-Reverb. Il broadcaster Laravel mantiene il collegamento
   interno HTTP su `localhost:8080` verso Reverb; questa separazione evita
@@ -101,6 +106,12 @@
   implementati.
 
 ## Test esistenti
+
+- M4-004, 2026-09-02: smoke runtime Horizon riuscito con CREATE/UPDATE/DELETE,
+  job fallito dopo tre tentativi e retry selettivo dopo la risottoscrizione
+  `private-chat`; `composer test` 40/210, Pint, PHPStan, Vitest normale e
+  seriale 15/87, lint, typecheck e build Next.js riusciti. Un primo download
+  Google Fonts ha bloccato la build, poi riuscita alla ripetizione.
 
 - Backend, M4-001: `composer test` ha superato 36 test e 194 assertion nel
   runtime Lerd; Pint e PHPStan sono riusciti senza errori. `composer horizon`

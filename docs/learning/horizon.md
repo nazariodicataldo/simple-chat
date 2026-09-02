@@ -104,6 +104,30 @@ Un errore comune e' considerare `horizon:status` prova della consegna browser:
 mostra soltanto lo stato del master. Un altro e' avviare due consumer sulla
 stessa queue e attribuire erroneamente il job a Horizon.
 
+## Verifica runtime M4-004
+
+La prova completa richiede evidenze indipendenti per ogni passaggio:
+
+- risposta HTTP e record Message per la persistenza;
+- dettaglio `BroadcastEvent` e timestamp nella dashboard per l'esecuzione
+  Horizon;
+- log del worker per i tentativi;
+- handshake WSS, autorizzazione `200` e
+  `pusher_internal:subscription_succeeded` per Echo;
+- una sola modifica della UI del browser ricevente per la consegna.
+
+Per prima cosa annotare gli UUID dei failed job gia' presenti. Durante il test
+si identifica e si ritenta soltanto il nuovo `BroadcastEvent` creato con Reverb
+fermo: i record della baseline non vanno rimossi o modificati. Dopo il riavvio
+di Reverb, non aggiornare la pagina: aspettare la risottoscrizione e verificare
+che il messaggio sia ancora assente prima del Retry. La sua comparsa singola
+dopo il click attribuisce la consegna al recupero selettivo, non al reconnect.
+
+Nel resoconto non copiare payload completi, cookie, token, segreti o stack
+trace. Se questa prova evidenzia un difetto riproducibile, registrare
+l'evidenza minima e aprire un task separato: M4-004 non autorizza correzioni
+applicative o di configurazione.
+
 ## Accesso alla dashboard M4-002
 
 Il provider pubblicato da Horizon autorizza di default la dashboard quando il

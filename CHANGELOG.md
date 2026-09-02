@@ -23,6 +23,10 @@ Il formato e' ispirato a [Keep a Changelog](https://keepachangelog.com/it/1.1.0/
 
 ### Changed
 
+- Completata la verifica runtime di Horizon: un solo consumer locale osserva
+  job Message completati e falliti e recupera selettivamente un broadcast dopo
+  la risottoscrizione Echo a Reverb.
+
 - Completata la verifica end-to-end dei broadcast queued su Redis con worker,
   retry, `failed_jobs`, Reverb ed Echo; il percorso reale e' documentato in
   M3-004.

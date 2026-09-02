@@ -40,6 +40,8 @@ class MessageController extends Controller
             'user_id' => $request->user()->id,
         ]);
 
+        $message->load('user');
+
         MessageCreated::dispatch(
             Message::with('user')->findOrFail($message->id),
         );
@@ -72,6 +74,7 @@ class MessageController extends Controller
         $this->authorize('update', $message);
 
         $message->update($request->validated());
+        $message->load('user');
 
         MessageUpdated::dispatch(
             Message::with('user')->findOrFail($message->id),
