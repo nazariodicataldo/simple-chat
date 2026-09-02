@@ -1,10 +1,10 @@
-# M4-003 — Verificare job Horizon e recupero reale
+# M4-004 — Verificare job Horizon e recupero reale
 
 - **Stato:** proposta
 - **Milestone:** Milestone 4 — Horizon
 - **Data di apertura:** 2026-08-31
 - **Data di chiusura:**
-- **Dipendenze:** M4-001, M4-002, M3-004
+- **Dipendenze:** M4-001, M4-002, M4-003, M3-004
 
 ## Contesto
 

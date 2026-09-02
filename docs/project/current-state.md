@@ -1,10 +1,10 @@
 # Stato corrente
 
 - **Milestone corrente:** Milestone 4 — Horizon (in corso).
-- **Ultimo task completato:** M4-001 — Installare e configurare Horizon locale.
+- **Ultimo task completato:** M4-002 — Proteggere la dashboard Horizon.
 - **Task attivo:** nessuno.
-- **Prossimo task suggerito:** M4-002 — Proteggere la dashboard Horizon.
-- **Ultimo aggiornamento:** 2026-09-01.
+- **Prossimo task suggerito:** M4-004 — Verificare job Horizon e recupero reale.
+- **Ultimo aggiornamento:** 2026-09-02.
 
 ## Funzionalita' esistenti
 
@@ -39,8 +39,9 @@
   `BROADCAST_CONNECTION=reverb`, configurazioni pubblicate e variabili di
   esempio senza credenziali reali. Host e porta del server sono ora distinti da
   quelli del broadcaster e le origini WebSocket sono configurabili. Il feature
-  test controlla la firma Pusher/Reverb con credenziali fittizie disponibili
-  prima del bootstrap soltanto per i test Channels.
+  test controlla la firma Pusher/Reverb con credenziali fittizie impostate dopo
+  il bootstrap dal fixture Channels, che rigenera il driver Reverb e ricarica la
+  dichiarazione applicativa del canale.
 - M2-004 ha installato `laravel-echo` 2.4.0 e `pusher-js` 8.6.0 e aggiunto il
   client browser lazy `frontend/lib/echo.ts`: configura Reverb, conserva il
   singleton attraverso HMR e autorizza `private-chat` tramite l'Axios/CSRF
@@ -88,7 +89,10 @@
   locale canonico di `redis/default`: il solo supervisor `local.chat-default`
   usa `simple`, un processo e la politica M3 (3 tentativi, backoff 5 s,
   timeout 60 s). `composer queue:work` resta diagnostico e non va eseguito in
-  parallelo; M4-002 proteggera' la dashboard locale.
+  parallelo; M4-003 ha reso il fixture Reverb indipendente dall'ordine dei
+  feature test. M4-002 protegge la dashboard anche in `local` con una lista
+  configurabile di email: guest e utenti fuori lista ricevono `403`, mentre la
+  sessione SPA HTTPS di `admin@admin.com` accede alla dashboard.
 - ADR 0003 fissa HTTPS/WSS come profilo locale predefinito per SPA, API e
   browser-verso-Reverb. Il broadcaster Laravel mantiene il collegamento
   interno HTTP su `localhost:8080` verso Reverb; questa separazione evita
@@ -102,6 +106,10 @@
   runtime Lerd; Pint e PHPStan sono riusciti senza errori. `composer horizon`
   e `horizon:status` hanno verificato il master locale, poi arrestato con
   `horizon:terminate`.
+- Backend, M4-002: il test della route reale Horizon (4 test, 6 assertion),
+  Pint, PHPStan e la suite (40 test, 200 assertion) sono riusciti nel runtime
+  Lerd. Lo smoke SPA HTTPS ha verificato `403` per guest e utente fuori lista,
+  oltre ai `200` delle richieste dashboard per `admin@admin.com`.
 - Backend: Pest verificato localmente con `composer test`: 13 test superati, 87 assertion (M1-007, 2026-08-10).
 - Backend, M1-008: `composer test` verificato localmente con PHP 8.5 Lerd (20 test, 140 assertion); PHPStan con `--memory-limit=512M` riuscito (34/34, nessun errore). Smoke test Postman per Sanctum cookie/CSRF riuscito.
 - Frontend: Vitest configurato con jsdom e React Testing Library; M1-005 verifica chat e schema Zod con 6 test.

@@ -33,7 +33,7 @@ horizon` il workflow locale canonico per consumare `redis/default`.
   con `horizon:snapshot`.
 - Modifiche a Message, eventi, API, Reverb, Echo, frontend, retry policy,
   `queue:work` o `.env` locale.
-- Changelog e chiusura della milestone: M4-003.
+- Changelog e chiusura della milestone: M4-004.
 
 ## File modificabili
 
@@ -199,4 +199,4 @@ Horizon `v5.48.3` e' il consumer locale canonico di `redis/default` tramite un
 solo worker `chat-default`. `composer queue:work` resta uno strumento
 diagnostico M3 e non va avviato con Horizon. M4-001 non invia job di prova: la
 dashboard protetta e la prova end-to-end completa restano rispettivamente in
-M4-002 e M4-003.
+M4-002 e M4-004.

@@ -85,6 +85,12 @@ return [
 
     'middleware' => ['web'],
 
+    // La dashboard locale usa una lista esplicita invece del fallback permissivo di Horizon.
+    'allowed_emails' => array_values(array_filter(array_map(
+        static fn (string $email): string => strtolower(trim($email)),
+        explode(',', env('HORIZON_ALLOWED_EMAILS', '')),
+    ))),
+
     /*
     |--------------------------------------------------------------------------
     | Queue Wait Time Thresholds

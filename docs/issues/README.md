@@ -30,3 +30,4 @@ l'issue, occorre adottare una decisione architetturale significativa.
 | --- | --- | --- | --- |
 | [ISS-001](ISS-001-allineare-cors-https-nei-test-backend.md) | risolta | Allineare CORS HTTPS nei test backend | ADR 0003, M2-008 |
 | [ISS-002](ISS-002-eliminare-flash-cache-messaggi-dopo-logout-login.md) | risolta | Eliminare il flash della cache messaggi dopo logout/login | M2-008, M2-009 |
+| [ISS-003](ISS-003-rendere-fixture-reverb-indipendente-ordine-test.md) | risolta | Rendere il fixture Reverb indipendente dall'ordine dei feature test | M4-002, M4-003 |

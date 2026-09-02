@@ -26,7 +26,7 @@ HTTP -> PostgreSQL -> BroadcastEvent -> Redis/default -> Horizon master
 
 Un successo HTTP prova persistenza e risposta API, non l'esecuzione del worker
 o la consegna realtime. La prova dei job completati, falliti e ritentati resta
-in M4-003.
+in M4-004.
 
 ## Correzione del workflow M3
 
@@ -90,7 +90,7 @@ php artisan config:show horizon
 
 `config:show horizon` mostra la configurazione risolta del supervisor;
 `horizon:status` prova che il master e' attivo. Questi comandi non dimostrano il
-consumo reale di un job, che appartiene a M4-003. Terminare Horizon con `Ctrl-C`
+consumo reale di un job, che appartiene a M4-004. Terminare Horizon con `Ctrl-C`
 al termine della verifica.
 M4-001 non invia job di prova e non dimostra dashboard, retry, Reverb o browser.
 
@@ -98,15 +98,35 @@ M4-001 non invia job di prova e non dimostra dashboard, retry, Reverb o browser.
 
 `Queue::fake()` e la suite con queue `sync` non dimostrano un processo Horizon,
 Redis reale o il worker figlio. Per questo M4-001 verifica manifest,
-configurazione e processo locale; M4-003 completera' la prova end-to-end.
+configurazione e processo locale; M4-004 completera' la prova end-to-end.
 
 Un errore comune e' considerare `horizon:status` prova della consegna browser:
 mostra soltanto lo stato del master. Un altro e' avviare due consumer sulla
 stessa queue e attribuire erroneamente il job a Horizon.
 
-Dopo M4-001 la dashboard e' disponibile nel solo profilo locale tramite il
-fallback del pacchetto. M4-002 aggiunge l'autorizzazione esplicita: fino ad
-allora non esporre il backend oltre l'ambiente di sviluppo.
+## Accesso alla dashboard M4-002
+
+Il provider pubblicato da Horizon autorizza di default la dashboard quando il
+Gate `viewHorizon` permette l'utente **oppure** l'applicazione e' in `local`.
+Per questo compilare soltanto il Gate non basta: il fallback locale manterrebbe
+accessibili dashboard e rotte interne a guest e utenti chat non autorizzati.
+
+M4-002 sostituisce tale callback con `Horizon::auth(...)` dopo il bootstrap del
+provider padre. La callback riceve la request e valuta l'utente della sessione
+web esistente: se manca, se la lista e' vuota o se la sua email non e' inclusa,
+il middleware Horizon restituisce `403 Forbidden` senza redirect a una pagina
+di login.
+
+`HORIZON_ALLOWED_EMAILS` resta configurazione locale, non un ruolo applicativo.
+La lista separata da virgole viene normalizzata con `trim` e minuscole, scarta i
+valori vuoti e confronta strettamente l'email utente normalizzata. Cosi'
+`admin@admin.com` e ` Admin@Admin.Com ` indicano lo stesso accesso esplicito,
+mentre una configurazione assente o vuota non autorizza nessuno.
+
+Il feature test visita la route reale `GET /horizon` per guest, utente fuori
+lista, utente autorizzato e lista vuota. Questa route attraversa il middleware
+condiviso dal gruppo Horizon; il retry effettivo dalla dashboard appartiene a
+M4-004 e non va simulato qui.
 
 ## Differenza production ed esercizio
 

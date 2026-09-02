@@ -2,79 +2,54 @@
 
 namespace Tests\Concerns;
 
-use Illuminate\Foundation\Application;
+use Illuminate\Broadcasting\BroadcastManager;
 
 trait UsesReverbForChannelTests
 {
     /**
-     * @var array<string, string>
+     * @var array<string, mixed>
      */
-    private const REVERB_TEST_ENVIRONMENT = [
-        'BROADCAST_CONNECTION' => 'reverb',
-        'REVERB_APP_ID' => 'test-reverb-app-id',
-        'REVERB_APP_KEY' => 'test-reverb-key',
-        'REVERB_APP_SECRET' => 'test-reverb-secret',
-        'REVERB_HOST' => 'localhost',
-        'REVERB_PORT' => '8080',
-        'REVERB_SCHEME' => 'http',
+    private const REVERB_TEST_CONFIGURATION = [
+        'broadcasting.default' => 'reverb',
+        'broadcasting.connections.reverb.key' => 'test-reverb-key',
+        'broadcasting.connections.reverb.secret' => 'test-reverb-secret',
+        'broadcasting.connections.reverb.app_id' => 'test-reverb-app-id',
+        'broadcasting.connections.reverb.options.host' => 'localhost',
+        'broadcasting.connections.reverb.options.port' => '8080',
+        'broadcasting.connections.reverb.options.scheme' => 'http',
+        'broadcasting.connections.reverb.options.useTLS' => false,
     ];
 
-    public function createApplication(): Application
-    {
-        $originalEnvironment = $this->setReverbTestEnvironment();
+    /**
+     * @var array<string, mixed>
+     */
+    private array $originalReverbTestConfiguration = [];
 
-        try {
-            return parent::createApplication();
-        } finally {
-            $this->restoreEnvironment($originalEnvironment);
+    protected function setUpUsesReverbForChannelTests(): void
+    {
+        // Il bootstrap puo' avere gia' letto l'ambiente: il fixture fissa la
+        // connessione Reverb dell'istanza di test appena creata.
+        foreach (self::REVERB_TEST_CONFIGURATION as $name => $value) {
+            $this->originalReverbTestConfiguration[$name] = $this->app['config']->get($name);
+            $this->app['config']->set($name, $value);
         }
+
+        // Il bootstrap registra il canale sul driver precedente: lo rigenera
+        // con la configurazione fittizia e riusa la dichiarazione applicativa.
+        $this->app->make(BroadcastManager::class)->purge('reverb');
+
+        require $this->app->basePath('routes/channels.php');
     }
 
-    /**
-     * @return array<string, array{environment: string|false, server: mixed, env: mixed}>
-     */
-    private function setReverbTestEnvironment(): array
+    protected function tearDownUsesReverbForChannelTests(): void
     {
-        $originalEnvironment = [];
-
-        foreach (self::REVERB_TEST_ENVIRONMENT as $name => $value) {
-            $originalEnvironment[$name] = [
-                'environment' => getenv($name),
-                'server' => $_SERVER[$name] ?? null,
-                'env' => $_ENV[$name] ?? null,
-            ];
-
-            putenv("{$name}={$value}");
-            $_SERVER[$name] = $value;
-            $_ENV[$name] = $value;
+        // Il ripristino evita che il fixture lasci configurazione condivisa
+        // nel ciclo di vita del test corrente.
+        foreach ($this->originalReverbTestConfiguration as $name => $value) {
+            $this->app['config']->set($name, $value);
         }
 
-        return $originalEnvironment;
-    }
-
-    /**
-     * @param  array<string, array{environment: string|false, server: mixed, env: mixed}>  $originalEnvironment
-     */
-    private function restoreEnvironment(array $originalEnvironment): void
-    {
-        foreach ($originalEnvironment as $name => $value) {
-            if ($value['environment'] === false) {
-                putenv($name);
-            } else {
-                putenv("{$name}={$value['environment']}");
-            }
-
-            if ($value['server'] === null) {
-                unset($_SERVER[$name]);
-            } else {
-                $_SERVER[$name] = $value['server'];
-            }
-
-            if ($value['env'] === null) {
-                unset($_ENV[$name]);
-            } else {
-                $_ENV[$name] = $value['env'];
-            }
-        }
+        $this->app->make(BroadcastManager::class)->purge('reverb');
+        $this->originalReverbTestConfiguration = [];
     }
 }
