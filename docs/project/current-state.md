@@ -1,11 +1,11 @@
 # Stato corrente
 
-- **Milestone corrente:** Milestone 4 — Horizon (completata 2026-09-02).
-- **Ultimo task completato:** M4-004 — Verificare job Horizon e recupero reale.
+- **Milestone corrente:** Milestone 5 — Docker (avviata 2026-09-03).
+- **Ultimo task completato:** M5-001 — Definire fondazioni Docker Compose.
 - **Task attivo:** nessuno.
 - **Task bloccato:** nessuno.
-- **Prossimo task suggerito:** pianificare Milestone 5 — Docker.
-- **Ultimo aggiornamento:** 2026-09-02.
+- **Prossimo task suggerito:** M5-002 — Containerizzare backend Laravel.
+- **Ultimo aggiornamento:** 2026-09-03.
 
 ## Funzionalita' esistenti
 
@@ -102,10 +102,20 @@
   browser-verso-Reverb. Il broadcaster Laravel mantiene il collegamento
   interno HTTP su `localhost:8080` verso Reverb; questa separazione evita
   mixed content e conserva semplice il traffico non esposto.
-- Lerd configura PostgreSQL, Redis e Mailpit locali. Docker e CI non sono ancora
-  implementati.
+- Lerd configura PostgreSQL, Redis e Mailpit locali. M5-001 introduce la base
+  Docker Compose con `compose.yaml`, senza servizi applicativi: il progetto usa
+  il nome `simple-chat`, `postgres:17`, `redis:8-alpine`, un `compose.env`
+  locale e Redis senza password nella rete privata. La validazione statica e
+  runtime Linux ha verificato entrambi gli healthcheck, PostgreSQL, Redis e la
+  persistenza del volume dopo `down`/`up`, oltre alla raggiungibilita' DNS/TCP
+  fra container temporanei e i servizi. Docker e CI non sono ancora implementati.
 
 ## Test esistenti
+
+- M5-001, 2026-09-03: `docker compose config --quiet` riuscito; PostgreSQL e
+  Redis avviati `healthy`, `pg_isready` e `PONG` riusciti. Il record innocuo
+  `5001` e' rimasto nel volume PostgreSQL dopo `down` e un nuovo `up`; client
+  temporanei hanno verificato DNS/TCP verso `postgres` e `redis`.
 
 - M4-004, 2026-09-02: smoke runtime Horizon riuscito con CREATE/UPDATE/DELETE,
   job fallito dopo tre tentativi e retry selettivo dopo la risottoscrizione
