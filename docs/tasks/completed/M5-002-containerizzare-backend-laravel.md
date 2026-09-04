@@ -1,9 +1,9 @@
 # M5-002 — Containerizzare backend Laravel
 
-- **Stato:** proposta
+- **Stato:** completato
 - **Milestone:** Milestone 5 — Docker
 - **Data di apertura:** 2026-09-03
-- **Data di chiusura:**
+- **Data di chiusura:** 2026-09-04
 - **Dipendenze:** M5-001
 
 ## Contesto
@@ -33,7 +33,10 @@ chiave applicativa e migrazioni iniziali.
 - `.dockerignore`
 - `compose.env.example`
 - `backend/.env.example`, solo per valori Compose diversi e non segreti
-- `docs/learning/docker-compose.md`
+- `backend/phpunit.xml`, per isolare il database SQLite della suite dalle
+  variabili del container
+- `docs/learning/docker.md`
+- `docs/project/current-state.md`
 - Questo task
 
 ## File non modificabili
@@ -76,13 +79,13 @@ container controlla contratti applicativi, non proxy o browser.
 
 ## Criteri di accettazione
 
-- [ ] Il build e l'avvio riescono senza PHP, Composer o database dell'host/Lerd.
-- [ ] Laravel raggiunge PostgreSQL e Redis tramite nomi Compose e le migration
+- [x] Il build e l'avvio riescono senza PHP, Composer o database dell'host/Lerd.
+- [x] Laravel raggiunge PostgreSQL e Redis tramite nomi Compose e le migration
   risultano applicate.
-- [ ] Suite, Pint e PHPStan hanno un esito registrato nel container o una
+- [x] Suite, Pint e PHPStan hanno un esito registrato nel container o una
   limitazione riproducibile.
-- [ ] Codice, dipendenze e cache generati localmente non sporcano Git.
-- [ ] Nessuna porta backend e' pubblicata sull'host.
+- [x] Codice, dipendenze e cache generati localmente non sporcano Git.
+- [x] Nessuna porta backend e' pubblicata sull'host.
 
 ## Rischi e assunzioni
 
@@ -103,11 +106,59 @@ Il database e' quello isolato M5-001: non importare dati Lerd.
 - Il backend e' un processo PHP interno alla rete Compose; Nginx M5-005 e'
   l'unico punto di ingresso host.
 - M5 usa immagine di sviluppo e bind mount, non immagini ottimizzate per M7.
+- Il bind mount contiene soltanto il sorgente. `vendor/`, cache Composer,
+  `storage/` e `bootstrap/cache/` sono volumi Docker nominati.
+- Composer viene eseguito dal container a ogni avvio; l'avvio PHP-FPM esegue
+  poi migration dopo gli healthcheck. La chiave applicativa resta una
+  procedura esplicita nel file `.env` locale ignorato.
+- Compose azzera `DB_URL` e `REDIS_URL` per evitare che URL locali Lerd
+  prevalgano sui nomi dei servizi Docker.
+- PHPUnit forza `DB_CONNECTION=sqlite` e `DB_DATABASE=:memory:` anche in
+  `$_SERVER`, perche' i test non devono usare i valori PostgreSQL Compose.
 
 ## File modificati
 
+- `compose.yaml`
+- `docker/backend/Dockerfile`
+- `docker/backend/entrypoint.sh`
+- `.dockerignore`
+- `backend/phpunit.xml`
+- `backend/tests/Feature/TestDatabaseConfigurationTest.php`
+- `docs/learning/docker.md`
+- `docs/project/current-state.md`
+- Questo task
+
 ## Risultati dei controlli
+
+- `docker compose --env-file compose.env config --quiet`: riuscito.
+- `docker compose --env-file compose.env build backend`: riuscito con PHP
+  `8.5.10`, Composer e le estensioni `pdo_pgsql`, `pgsql`, `redis`,
+  `mbstring`, `pcntl`, `xml` e `zip`.
+- `docker compose --env-file compose.env up -d postgres redis backend`:
+  PostgreSQL e Redis `healthy`; Composer ha popolato il volume `backend-vendor`,
+  Laravel ha applicato quattro migration e PHP-FPM e' rimasto attivo.
+- `php artisan about` nel container: database `pgsql`, queue `redis` e sessione
+  database; `php artisan migrate:status`: quattro migration applicate.
+- Mount osservati: bind mount per `/var/www/html`, volumi nominati per
+  `vendor/`, cache Composer, `storage/` e `bootstrap/cache/`; `docker compose
+  ps` mostra solo `9000/tcp` interno al container backend, senza mapping host.
+- La prima suite nel container ha rivelato che `DB_DATABASE` Compose prevaleva
+  sul test SQLite. Il fix PHPUnit forza anche `$_SERVER`; riproduzione mirata
+  e `TestDatabaseConfigurationTest` (1 test, 3 assertion) aprono una
+  connessione PDO SQLite in memoria, senza usare PostgreSQL Compose.
+- `composer test`: 41 test, 213 assertion, riuscito.
+- `./vendor/bin/pint --test`: 62 file, riuscito.
+- `./vendor/bin/phpstan analyse --memory-limit=512M`: 42 file, nessun errore.
+- `docker compose --env-file compose.env down`: riuscito senza `-v`.
+- `git diff --check`: riuscito.
 
 ## Problemi residui
 
+Nessuno.
+
 ## Riepilogo finale
+
+M5-002 e' completato: il backend Laravel gira come processo PHP-FPM interno a
+Compose, usa PostgreSQL e Redis privati tramite DNS Compose e conserva le
+dipendenze e cache in volumi Docker. Il sorgente resta un bind mount editabile;
+M5-005 esporra' il backend tramite Nginx.

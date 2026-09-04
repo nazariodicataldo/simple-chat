@@ -110,6 +110,56 @@ vanno aggiornate e la rete deve essere definita rispetto all'infrastruttura
 reale. Anche il modo di esporre HTTP/HTTPS e WSS sara' affrontato dal task
 dedicato al reverse proxy, non anticipato qui.
 
+## Backend Laravel di M5-002
+
+L'immagine `backend` dichiara PHP 8.5, Composer e le estensioni necessarie a
+Laravel, PostgreSQL e Redis. Non copia il sorgente Laravel, `vendor/` o le
+directory runtime: il build produce soltanto l'ambiente PHP ripetibile.
+
+In sviluppo Compose monta il sorgente e, separatamente, i dati generati:
+
+```text
+./backend                         -> /var/www/html
+volume backend-vendor             -> /var/www/html/vendor
+volume composer-cache             -> /tmp/composer-cache
+volume backend-storage            -> /var/www/html/storage
+volume backend-bootstrap-cache    -> /var/www/html/bootstrap/cache
+```
+
+Il primo mount e' un bind mount: un salvataggio nell'editor e' subito visibile
+al container. PHP usera' il file aggiornato alla richiesta o al comando
+successivo; non serve ricostruire l'immagine. I volumi successivi impediscono
+invece che il bind mount nasconda le dipendenze e le cache create dal
+container. `composer install` gira nel container, legge `composer.lock` e
+scrive soltanto nel volume `backend-vendor`.
+
+`.dockerignore` e `.gitignore` hanno ruoli diversi. Il primo evita che un
+eventuale `vendor/` host entri nel contesto di build; il secondo resta una
+protezione nel caso in cui la stessa cartella sia creata fuori da Docker.
+
+Per il primo avvio, con PostgreSQL e Redis gia' attivi, copiare una volta il
+file applicativo locale e generare esplicitamente la chiave:
+
+```bash
+cp backend/.env.example backend/.env
+docker compose --env-file compose.env up -d postgres redis
+docker compose --env-file compose.env run --rm backend php artisan key:generate
+docker compose --env-file compose.env up -d backend
+```
+
+Ogni avvio del container backend esegue prima `composer install`; quindi al primo
+`key:generate` le dipendenze vengono popolate nel volume. Il normale avvio
+`php-fpm` esegue poi `php artisan migrate --force`. Grazie a
+`depends_on: service_healthy`, PostgreSQL e Redis sono pronti prima di questa
+sequenza. I comandi sono concatenati senza fallback: se Composer o migration
+falliscono, PHP-FPM non parte.
+
+Compose passa al container `DB_HOST=postgres`, i valori database da
+`compose.env` e `REDIS_HOST=redis`. Queste variabili prevalgono sui valori
+Lerd eventualmente presenti in `backend/.env`: il backend Docker non dipende
+da host, DNS o database Lerd. Il servizio non pubblica porte host; Nginx sara'
+aggiunto soltanto in M5-005.
+
 ## Esercizio M5-001
 
 1. Spiega perche' `postgres` e `redis` possono comunicare con i futuri servizi
@@ -120,6 +170,7 @@ dedicato al reverse proxy, non anticipato qui.
    secondo non va usato come normale pulizia.
 4. Spiega la differenza tra una variabile usata per interpolare Compose e una
    variabile effettivamente disponibile nel container PostgreSQL.
+5. Spiega perche' `vendor/` ha un volume distinto dal bind mount del sorgente.
 
 ## Documentazione ufficiale
 

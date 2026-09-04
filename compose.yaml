@@ -24,5 +24,37 @@ services:
       timeout: 5s
       retries: 5
 
+  backend:
+    build:
+      context: .
+      dockerfile: docker/backend/Dockerfile
+    environment:
+      COMPOSER_CACHE_DIR: /tmp/composer-cache
+      DB_CONNECTION: pgsql
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_DATABASE: ${POSTGRES_DB}
+      DB_USERNAME: ${POSTGRES_USER}
+      DB_PASSWORD: ${POSTGRES_PASSWORD}
+      DB_URL: ""
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_URL: ""
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    volumes:
+      - ./backend:/var/www/html
+      - backend-vendor:/var/www/html/vendor
+      - composer-cache:/tmp/composer-cache
+      - backend-storage:/var/www/html/storage
+      - backend-bootstrap-cache:/var/www/html/bootstrap/cache
+
 volumes:
   postgres-data:
+  backend-vendor:
+  composer-cache:
+  backend-storage:
+  backend-bootstrap-cache:

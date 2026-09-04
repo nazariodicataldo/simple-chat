@@ -1,11 +1,11 @@
 # Stato corrente
 
 - **Milestone corrente:** Milestone 5 — Docker (avviata 2026-09-03).
-- **Ultimo task completato:** M5-001 — Definire fondazioni Docker Compose.
+- **Ultimo task completato:** M5-002 — Containerizzare backend Laravel.
 - **Task attivo:** nessuno.
 - **Task bloccato:** nessuno.
-- **Prossimo task suggerito:** M5-002 — Containerizzare backend Laravel.
-- **Ultimo aggiornamento:** 2026-09-03.
+- **Prossimo task suggerito:** M5-003 — Containerizzare frontend Next.
+- **Ultimo aggiornamento:** 2026-09-04.
 
 ## Funzionalita' esistenti
 
@@ -109,8 +109,26 @@
   runtime Linux ha verificato entrambi gli healthcheck, PostgreSQL, Redis e la
   persistenza del volume dopo `down`/`up`, oltre alla raggiungibilita' DNS/TCP
   fra container temporanei e i servizi. Docker e CI non sono ancora implementati.
+- M5-002 aggiunge il backend PHP 8.5-FPM interno: sorgente Laravel in bind
+  mount, mentre `vendor/`, cache Composer, `storage/` e `bootstrap/cache/`
+  vivono in volumi Docker. L'avvio esegue `composer install`, migration dopo
+  gli healthcheck PostgreSQL/Redis e poi PHP-FPM; Compose sovrascrive i soli
+  valori database/Redis necessari per non dipendere da Lerd, neutralizzando
+  anche eventuali `DB_URL` e `REDIS_URL` locali. La suite PHPUnit forza anche
+  `$_SERVER` e verifica una connessione PDO SQLite in memoria dalle variabili
+  Compose.
 
 ## Test esistenti
+
+- M5-002, 2026-09-03: build backend PHP `8.5.10` riuscito con estensioni
+  PostgreSQL/Redis/Laravel; PostgreSQL e Redis healthy, quattro migration
+  applicate e PHP-FPM attivo senza porta host. `composer test` (40 test, 210
+  assertion), Pint (61 file) e PHPStan (42 file, 0 errori) sono riusciti nel
+  container. Il primo run ha rivelato la precedenza di `$_SERVER` Docker sul
+  test SQLite; la riproduzione mirata e il fix PHPUnit sono verificati prima
+  della suite finale. Il follow-up di revisione del 2026-09-04 ha neutralizzato
+  `DB_URL` e `REDIS_URL` locali e aggiunto il test PDO SQLite; `composer test`
+  ha poi superato 41 test e 213 assertion, Pint 62 file e PHPStan 42 file.
 
 - M5-001, 2026-09-03: `docker compose config --quiet` riuscito; PostgreSQL e
   Redis avviati `healthy`, `pg_isready` e `PONG` riusciti. Il record innocuo

@@ -1,0 +1,10 @@
+.git
+compose.env
+frontend
+backend/.env
+backend/.env.*
+backend/vendor
+backend/storage
+backend/bootstrap/cache
+backend/public/hot
+backend/.phpunit.result.cache
