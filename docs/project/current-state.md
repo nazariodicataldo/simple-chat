@@ -1,11 +1,11 @@
 # Stato corrente
 
 - **Milestone corrente:** Milestone 5 — Docker (avviata 2026-09-03).
-- **Ultimo task completato:** M5-002 — Containerizzare backend Laravel.
+- **Ultimo task completato:** M5-003 — Containerizzare frontend Next.js.
 - **Task attivo:** nessuno.
 - **Task bloccato:** nessuno.
-- **Prossimo task suggerito:** M5-003 — Containerizzare frontend Next.
-- **Ultimo aggiornamento:** 2026-09-04.
+- **Prossimo task suggerito:** M5-004 — Eseguire Reverb e Horizon in Compose.
+- **Ultimo aggiornamento:** 2026-09-07.
 
 ## Funzionalita' esistenti
 
@@ -117,8 +117,27 @@
   anche eventuali `DB_URL` e `REDIS_URL` locali. La suite PHPUnit forza anche
   `$_SERVER` e verifica una connessione PDO SQLite in memoria dalle variabili
   Compose.
+- M5-003 aggiunge il frontend Next.js di sviluppo: Node `24.19.0` e pnpm
+  `11.20.0` nell'immagine, sorgente in bind mount e volumi nominati separati per
+  `node_modules`, `.next` (inclusa la cache TypeScript) e cache pnpm. Il
+  servizio espone temporaneamente `http://localhost:3000` soltanto su
+  `127.0.0.1`, ascolta internamente su `0.0.0.0` e non dipende da backend,
+  PostgreSQL o Redis. L'origine di sviluppo conserva
+  `app.simple-chat.test` e aggiunge `localhost:3000`; HTTPS, proxy e prova chat
+  completa restano M5-005.
 
 ## Test esistenti
+
+- M5-003, 2026-09-06/07: Compose config e build dell'immagine frontend sono
+  riusciti. Nei container temporanei `pnpm test` ha superato 15 file e 86 test;
+  lint, typecheck e build Next.js sono riusciti e sono stati rieseguiti dopo la
+  revisione. La revisione ha limitato la porta host a `127.0.0.1:3000` e
+  collocato la cache incrementale TypeScript in `.next`, il volume frontend:
+  typecheck, build, mapping loopback e richiesta HTTP `200` sono verificati.
+  Next dev ha risposto su `localhost:3000` con il previsto `SessionError` senza
+  backend e la prova browser ha confermato HMR dopo una modifica temporanea poi
+  annullata. I tre dati generati sono risultati nei volumi e sono rimasti dopo
+  `docker compose down` senza `-v`.
 
 - M5-002, 2026-09-03: build backend PHP `8.5.10` riuscito con estensioni
   PostgreSQL/Redis/Laravel; PostgreSQL e Redis healthy, quattro migration

@@ -160,6 +160,71 @@ Lerd eventualmente presenti in `backend/.env`: il backend Docker non dipende
 da host, DNS o database Lerd. Il servizio non pubblica porte host; Nginx sara'
 aggiunto soltanto in M5-005.
 
+## Frontend Next.js di M5-003
+
+M5-003 aggiunge soltanto il processo Next di sviluppo. `.nvmrc` resta la fonte
+di verita' per Node `v24.19.0`; l'immagine usa pnpm `11.20.0` e il lockfile
+resta invariato.
+
+Come per Laravel, il sorgente resta un bind mount e i file generati vivono in
+volumi Docker separati:
+
+```text
+./frontend                        -> /app
+volume frontend-node-modules      -> /app/node_modules
+volume frontend-next              -> /app/.next
+volume pnpm-cache                 -> store riusabile degli archivi pnpm
+```
+
+`frontend-node-modules` contiene le dipendenze che Node usa; `pnpm-cache`
+conserva invece gli archivi gia' scaricati, come `composer-cache` per il
+backend. Sono due responsabilita' diverse: la cache rende piu' rapidi gli
+install successivi quando cambia una dipendenza, ma non sostituisce
+`node_modules`. L'avvio esegue sempre `pnpm install --frozen-lockfile`,
+quindi il lockfile resta il contratto riproducibile e nessun `node_modules`
+dell'host viene riusato.
+
+`.dockerignore` non esclude l'intero sorgente frontend: filtra soltanto
+dipendenze, output Next, cache TypeScript, file `.env`, certificati e log
+locali. Oggi il Dockerfile copia solo l'entrypoint e il codice arriva con il
+bind mount, ma questa selezione mantiene sicuro e utile il contesto di build
+se in futuro sara' necessario copiare un file frontend nell'immagine.
+
+TypeScript usa `incremental`, quindi anche con `noEmit` scrive una cache
+`.tsbuildinfo`. `tsBuildInfoFile` la colloca in `/app/.next`, gia' coperta dal
+volume `frontend-next`: il typecheck eseguito nel container non crea
+`frontend/tsconfig.tsbuildinfo` nell'host.
+
+Il comando imposta anche un timeout di fetch di cinque minuti. Non cambia
+registry, dipendenze o retry: evita soltanto che pnpm interrompa un download
+ancora attivo quando la rete Docker e' sotto la soglia di velocita' prevista
+dal suo timeout predefinito di un minuto.
+
+Next ascolta su `0.0.0.0` nel container: non e' un indirizzo da digitare
+nel browser, ma significa che il processo accetta connessioni dalla rete
+Docker. Il mapping temporaneo `127.0.0.1:3000:3000` permette di aprire
+`http://localhost:3000` dall'host e osservare HMR, senza esporre il server di
+sviluppo alla rete locale. Non sono ancora HTTPS, domini `.test`, Sanctum, API
+o WSS: questi contratti restano M5-005.
+
+Il frontend non ha `depends_on`. Next non apre connessioni a PostgreSQL o
+Redis e dipende da Laravel soltanto via HTTP; avviare il database non sarebbe
+una prova utile. Senza backend attivo, il rendering della pagina puo' mostrare
+`SessionError`: e' previsto in questa prova isolata, non prova la chat.
+
+Test, lint, typecheck e build sono eseguiti con `docker compose run --rm
+--no-deps frontend ...` prima del server HMR. Questi container usano la stessa
+immagine, bind mount e volumi del servizio, ma evitano il lock con cui Next 16
+impedisce `next build` mentre `next dev` e' gia' in esecuzione.
+
+Su Linux il flusso e' verificato: test (15 file, 86 test), lint, typecheck e
+build sono riusciti nei container temporanei. Next dev ha risposto su
+`localhost:3000` con il previsto `SessionError` senza backend e la prova browser
+ha confermato HMR dopo una modifica temporanea poi annullata. Su macOS e Windows
+il bind mount puo' rallentare HMR per il costo di accesso ai file condivisi: e' una
+limitazione da annotare, non una ragione per introdurre polling o una seconda
+configurazione prima di osservarne la necessita'.
+
 ## Esercizio M5-001
 
 1. Spiega perche' `postgres` e `redis` possono comunicare con i futuri servizi

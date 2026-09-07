@@ -52,9 +52,27 @@ services:
       - backend-storage:/var/www/html/storage
       - backend-bootstrap-cache:/var/www/html/bootstrap/cache
 
+  frontend:
+    build:
+      context: .
+      dockerfile: docker/frontend/Dockerfile
+    environment:
+      FRONTEND_URL: http://localhost:3000
+      NEXT_PUBLIC_BACKEND_URL: http://backend
+    ports:
+      - "127.0.0.1:3000:3000"
+    volumes:
+      - ./frontend:/app
+      - frontend-node-modules:/app/node_modules
+      - frontend-next:/app/.next
+      - pnpm-cache:/pnpm-cache
+
 volumes:
   postgres-data:
   backend-vendor:
   composer-cache:
   backend-storage:
   backend-bootstrap-cache:
+  frontend-node-modules:
+  frontend-next:
+  pnpm-cache:
