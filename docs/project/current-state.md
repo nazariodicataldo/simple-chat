@@ -1,10 +1,10 @@
 # Stato corrente
 
 - **Milestone corrente:** Milestone 5 — Docker (avviata 2026-09-03).
-- **Ultimo task completato:** M5-003 — Containerizzare frontend Next.js.
+- **Ultimo task completato:** M5-004 — Eseguire Reverb e Horizon in Compose.
 - **Task attivo:** nessuno.
 - **Task bloccato:** nessuno.
-- **Prossimo task suggerito:** M5-004 — Eseguire Reverb e Horizon in Compose.
+- **Prossimo task suggerito:** M5-005 — Esporre stack Compose con Nginx, HTTPS e WSS.
 - **Ultimo aggiornamento:** 2026-09-07.
 
 ## Funzionalita' esistenti
@@ -125,8 +125,26 @@
   PostgreSQL o Redis. L'origine di sviluppo conserva
   `app.simple-chat.test` e aggiunge `localhost:3000`; HTTPS, proxy e prova chat
   completa restano M5-005.
+- M5-004 aggiunge i servizi Compose `reverb` e `horizon`, entrambi basati
+  sull'immagine backend e con comandi separati. Reverb ascolta su
+  `0.0.0.0:8080` senza porta host pubblicata e diventa healthy con un controllo
+  TCP interno su `127.0.0.1:8080`; Horizon attende Redis e Reverb healthy ed e'
+  l'unico consumer di `redis/default`. Backend e Horizon usano
+  `REVERB_HOST=reverb`, `REVERB_PORT=8080` e `REVERB_SCHEME=http`; il browser,
+  HTTPS, proxy e WSS restano M5-005.
 
 ## Test esistenti
+
+- M5-004, 2026-09-07: `docker compose config --quiet`, build e avvio di
+  PostgreSQL, Redis, backend, Reverb e Horizon riusciti. PostgreSQL e Redis
+  sono healthy, Reverb e' healthy dopo il suo healthcheck TCP interno e
+  `horizon:status` riporta Horizon running. Il feature test
+  `MessageBroadcastingTest` ha superato 5 test e 22 assertion. Tinker ha creato
+  un messaggio marcato, `MessageCreated` e' stato completato da Horizon,
+  `queues:default` e' tornata vuota, `masters=1`, `supervisors=1` e
+  `queue:failed` e' rimasta vuota; il messaggio e' stato eliminato per ID.
+  Reverb e Horizon sono stati poi fermati lasciando attivi backend, PostgreSQL
+  e Redis. Non e' stata dichiarata la consegna browser.
 
 - M5-003, 2026-09-06/07: Compose config e build dell'immagine frontend sono
   riusciti. Nei container temporanei `pnpm test` ha superato 15 file e 86 test;
@@ -264,3 +282,13 @@
   assenza di duplicati. `composer test` (36 test, 194 assertion), Pint,
   PHPStan, `pnpm test` (15 file, 85 test), lint, typecheck e build sono
   riusciti.
+
+- M5-004, 2026-09-07: `docker compose --env-file compose.env config --quiet`,
+  test statico di riuso immagine RED/GREEN, feature test HTTP mirato (5 test,
+  22 assertion), build/avvio runtime,
+  `horizon:status`, log Reverb/Horizon, prova Tinker con job completato,
+  `queue:failed`, controllo dei conteggi Horizon e stop selettivo dei due
+  servizi sono riusciti. Il controllo ha trovato e corretto l'ereditarieta'
+  dell'host PostgreSQL Lerd nel boot Reverb aggiungendo gli override DB Compose;
+  la verifica successiva ha riportato Reverb healthy e log di avvio su
+  `0.0.0.0:8080`.

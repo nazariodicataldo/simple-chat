@@ -160,6 +160,71 @@ Lerd eventualmente presenti in `backend/.env`: il backend Docker non dipende
 da host, DNS o database Lerd. Il servizio non pubblica porte host; Nginx sara'
 aggiunto soltanto in M5-005.
 
+## Implementazione M5-004: Reverb e Horizon
+
+M5-004 estende Compose con due processi Laravel distinti
+che riusano l'immagine backend. `reverb` eseguira' `php artisan reverb:start`;
+`horizon` eseguira' `php artisan horizon`. Non sono due processi nello stesso
+container: hanno log e ciclo di vita separati, ma condividono sorgente, `vendor`
+e la configurazione locale gia' montati dall'immagine backend.
+
+Il broadcaster non viene eseguito dal container PHP-FPM `backend` quando
+l'evento e' in coda. Il controller HTTP salva prima il messaggio, poi dopo il
+commit accoda `BroadcastEvent` su Redis. Horizon lo consuma e soltanto allora
+usa la configurazione Reverb per inviare l'evento al server WebSocket:
+
+```text
+request HTTP autorizzata
+  -> PostgreSQL
+  -> BroadcastEvent in Redis/default
+  -> Horizon
+  -> HTTP interno a reverb:8080
+  -> Reverb
+```
+
+`localhost` ha un significato diverso in ciascun container: punta sempre allo
+stesso container. Per questo `horizon` deve ricevere
+`REVERB_HOST=reverb`, `REVERB_PORT=8080` e `REVERB_SCHEME=http`: `reverb` e' il
+nome DNS privato che Compose assegna al servizio Reverb. Le variabili
+`NEXT_PUBLIC_REVERB_*` restano il contratto del browser e non cambiano in
+questo task; il browser ricevera' il proprio WSS pubblico tramite Nginx in
+M5-005.
+
+Prima di avviare Horizon, Compose attendera' due segnali: Redis deve essere
+`healthy` e Reverb deve avere la porta TCP `8080` in ascolto. L'healthcheck
+Reverb gira *dentro* il suo container e tenta una breve connessione a
+`127.0.0.1:8080`. In questo punto `127.0.0.1` e' corretto: verifica il processo
+Reverb locale, non un altro servizio. Se il sistema operativo accetta la
+connessione, Docker segna Reverb `healthy`; se la rifiuta o scade, rimane
+`starting` o diventa `unhealthy`.
+
+```text
+redis healthy
+  -> reverb avviato
+     -> TCP 127.0.0.1:8080 accetta connessioni
+        -> reverb healthy
+           -> horizon avviato
+```
+
+Questo ordine evita che Horizon consumi il primo broadcast prima che Reverb
+sia pronto. Non prova una consegna a Echo e non costituisce un controllo
+continuo: se Reverb cade dopo l'avvio, Docker non riavvia automaticamente
+Horizon. La prova runtime del task confrontera' un job Horizon completato e i
+failed job prima/dopo; la prova browser resta esplicitamente M5-005.
+
+Per evitare di interrompere il resto dell'ambiente durante una verifica,
+M5-004 termina con `docker compose --env-file compose.env stop reverb horizon`
+invece di `down`. `stop` lascia invariati gli altri servizi e i volumi del
+progetto; un successivo `up` riavviera' soltanto i servizi fermati o necessari.
+
+La verifica runtime del 2026-09-07 ha confermato PostgreSQL e Redis healthy,
+Reverb healthy dopo l'apertura della porta TCP interna e Horizon avviato dopo
+Reverb. Un `MessageCreated` marcato creato con Tinker ha prodotto un job
+completato in Horizon, con `queues:default` vuota e nessun failed job nuovo.
+Il messaggio e' stato poi eliminato per il solo ID di prova. Questa prova copre
+il collegamento interno fino a Reverb; non copre la consegna a Echo dal browser,
+che resta M5-005.
+
 ## Frontend Next.js di M5-003
 
 M5-003 aggiunge soltanto il processo Next di sviluppo. `.nvmrc` resta la fonte
