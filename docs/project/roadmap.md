@@ -20,9 +20,12 @@ Redis, `ShouldBroadcast`, queue, `queue:work`, job broadcasting, retry, failed j
 
 Installazione, dashboard protetta e worker gestiti/osservabili tramite Horizon. **DoD:** job completati e falliti sono osservabili e gestibili.
 
-## Milestone 5 — Docker
+## Milestone 5 — Docker (completata 2026-09-14)
 
-In ordine: PostgreSQL/Redis, backend, frontend, Reverb, worker/Horizon ed eventuale reverse proxy. **DoD:** l'ambiente completo parte riproducibilmente con Compose.
+PostgreSQL/Redis, backend, frontend, Reverb, worker/Horizon e reverse proxy
+Nginx con HTTPS/WSS locale su `127.0.0.1:8443`. **DoD:** l'ambiente completo
+parte riproducibilmente con Compose; login Sanctum, CRUD e realtime sono stati
+verificati con due browser senza refresh.
 
 ## Milestone 6 — Test end-to-end e CI
 

@@ -21,6 +21,10 @@ Il formato e' ispirato a [Keep a Changelog](https://keepachangelog.com/it/1.1.0/
 - Azioni frontend per modifica ed eliminazione dei messaggi propri, con popover,
   dialog di conferma/modifica, notifiche persistenti e controlli accessibili.
 
+- Stack locale Docker Compose completo con PostgreSQL, Redis, Laravel,
+  Next.js, Reverb, Horizon e Nginx; HTTPS/WSS su `127.0.0.1:8443`, certificato
+  SAN locale ignorato da Git e smoke browser a due profili.
+
 ### Changed
 
 - Completata la verifica runtime di Horizon: un solo consumer locale osserva

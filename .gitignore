@@ -3,6 +3,7 @@
 **/.env.*
 !.env.example
 compose.env
+.cert/
 
 # Dependencies
 **/node_modules/
@@ -36,4 +37,3 @@ pnpm-debug.log*
 Thumbs.db
 .idea/
 .vscode/
-

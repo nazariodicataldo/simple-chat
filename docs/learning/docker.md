@@ -290,6 +290,101 @@ il bind mount puo' rallentare HMR per il costo di accesso ai file condivisi: e' 
 limitazione da annotare, non una ragione per introdurre polling o una seconda
 configurazione prima di osservarne la necessita'.
 
+## M5-005: Nginx, HTTPS e WSS
+
+M5-005 non aggiunge una porta pubblica a ogni container. Espone una sola porta
+locale, `127.0.0.1:8443`, del solo Nginx. Il numero dopo i due punti indica la
+porta della macchina host; non identifica l'applicazione. Entrambi gli URL
+usano quindi `:8443`, ma il browser invia anche il nome richiesto nell'header
+`Host` e Nginx sceglie l'upstream corretto.
+
+```text
+browser
+  -> https://app.simple-chat.test:8443 -> Nginx -> frontend:3000
+  -> https://api.simple-chat.test:8443 -> Nginx -> backend:9000
+                                             -> reverb:8080 per /app e /apps
+
+backend e Horizon -> HTTP privato -> reverb:8080
+backend/reverb/horizon -> rete privata -> postgres e redis
+```
+
+`app.simple-chat.test` e `api.simple-chat.test` sono quindi gia' i due nomi
+distinti desiderati: non richiedono due porte. La porta `443` permetterebbe di
+omettere `:8443` dagli URL, ma qui rimane libera per Lerd; `8443` evita la
+collisione e il mapping su `127.0.0.1` impedisce l'esposizione alla rete locale.
+PostgreSQL e Redis non ricevono porte host perche' nessun browser deve
+raggiungerli: i soli container autorizzati li trovano tramite i nomi Docker
+`postgres` e `redis`.
+
+### Certificato locale e SAN
+
+Un certificato TLS contiene i nomi per cui e' valido. SAN significa *Subject
+Alternative Name*: una singola coppia certificato/chiave puo' dichiarare sia
+`app.simple-chat.test` sia `api.simple-chat.test`. Nginx presenta quindi lo
+stesso certificato a entrambi i nomi e il browser lo accetta se la CA che lo ha
+emesso e' fidata.
+
+Il profilo Linux richiede le due risoluzioni locali prima dell'avvio:
+
+```text
+127.0.0.1 app.simple-chat.test api.simple-chat.test
+```
+
+e una CA mkcert installata nel sistema. Il materiale locale andra' nella
+directory ignorata `.cert/`:
+
+```bash
+mkdir -p .cert
+mkcert -install
+mkcert -cert-file .cert/simple-chat.test.pem -key-file .cert/simple-chat.test-key.pem app.simple-chat.test api.simple-chat.test
+cp "$(mkcert -CAROOT)/rootCA.pem" .cert/mkcert-root-ca.pem
+```
+
+La chiave privata non entra mai in Git. Nginx monta certificato e chiave in
+sola lettura; Next riceve soltanto `mkcert-root-ca.pem`, sempre in sola lettura.
+Il secondo mount serve al rendering server-side: il processo Node contatta
+l'API HTTPS e deve verificare la CA locale, non disabilitare TLS. Nel container
+il nome pubblico `api.simple-chat.test` risolvera' verso Nginx nella rete
+Compose, cosi' browser e rendering server-side usano lo stesso URL.
+
+I tre file devono esistere prima di `docker compose up`: se un bind source
+manca, Docker puo' creare una directory vuota con quel nome e Nginx terminera'
+con un errore di certificato. Queste directory placeholder vanno rimosse prima
+di generare i file mkcert.
+
+### Routing e verifica
+
+Nginx inoltra `app.*` a Next. Per `api.*`, inoltra le richieste Laravel
+a PHP-FPM e solo i percorsi Pusher/Reverb `/app/...` e `/apps/...` a Reverb,
+incluso l'upgrade WebSocket. Laravel e Horizon continueranno invece a chiamare
+direttamente `http://reverb:8080`: TLS e il proxy sono necessari al browser,
+non al traffico privato tra container.
+
+Il test HTTP usa la CA, non il certificato server, perche' e' la CA a firmare
+il certificato SAN:
+
+```bash
+curl --fail --cacert .cert/mkcert-root-ca.pem --resolve api.simple-chat.test:8443:127.0.0.1 https://api.simple-chat.test:8443/up
+```
+
+Questo prova TLS, risoluzione e raggiungibilita' API, ma non il realtime. La
+prova completa richiede due browser con utenti distinti: login/CSRF,
+autorizzazione `private-chat`, CREATE/UPDATE/DELETE e una sola riconciliazione
+per evento nell'altro browser. Si eliminano selettivamente i soli messaggi di
+prova; gli utenti di test non fanno parte della pulizia obbligatoria.
+
+Il task completato registra la verifica Linux della configurazione Compose e
+della sintassi Nginx, dei controlli frontend e backend, della build delle
+immagini e dello smoke HTTPS/WSS a due browser. I primi errori erano dovuti
+all'assenza dei tre file mkcert e alla rete verso Docker Hub e Google Fonts:
+non sono un requisito da aggirare disabilitando TLS. Per rieseguire la prova,
+servono prima i certificati locali e la connettivita' alle immagini e al font
+remoto.
+
+Linux e' l'unica piattaforma verificata. Su macOS e Windows Compose e' identico,
+ma cambiano il file hosts e il trust della CA: questa e' una nota di
+adattamento, non una verifica di supporto.
+
 ## Esercizio M5-001
 
 1. Spiega perche' `postgres` e `redis` possono comunicare con i futuri servizi

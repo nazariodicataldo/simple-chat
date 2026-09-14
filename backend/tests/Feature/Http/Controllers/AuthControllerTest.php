@@ -7,7 +7,7 @@ use Illuminate\Support\Facades\Hash;
 uses(RefreshDatabase::class);
 
 it('registers a user, starts a session, and returns the current user', function () {
-    $csrfResponse = $this->withHeader('Origin', 'https://app.simple-chat.test:3000')
+    $csrfResponse = $this->withHeader('Origin', 'https://app.simple-chat.test:8443')
         ->get('/sanctum/csrf-cookie')
         ->assertNoContent();
 
@@ -57,7 +57,7 @@ it('logs in, logs out, and prevents access after the session ends', function () 
         'password' => Hash::make('password'),
     ]);
 
-    $csrfResponse = $this->withHeader('Origin', 'https://app.simple-chat.test:3000')
+    $csrfResponse = $this->withHeader('Origin', 'https://app.simple-chat.test:8443')
         ->get('/sanctum/csrf-cookie')
         ->assertNoContent();
 
@@ -96,7 +96,7 @@ it('logs in, logs out, and prevents access after the session ends', function () 
 });
 
 it('issues the CSRF cookie for the configured SPA origin', function () {
-    $this->withHeader('Origin', 'https://app.simple-chat.test:3000')
+    $this->withHeader('Origin', 'https://app.simple-chat.test:8443')
         ->get('/sanctum/csrf-cookie')
         ->assertNoContent()
         ->assertCookie('XSRF-TOKEN');
@@ -105,7 +105,7 @@ it('issues the CSRF cookie for the configured SPA origin', function () {
 it('rejects a stateful request that does not include a CSRF token', function () {
     $this->app['env'] = 'local';
 
-    $this->withMiddleware()->withHeader('Origin', 'https://app.simple-chat.test:3000')
+    $this->withMiddleware()->withHeader('Origin', 'https://app.simple-chat.test:8443')
         ->postJson('/api/register', [
             'first_name' => 'Ada',
             'last_name' => 'Lovelace',
@@ -119,11 +119,11 @@ it('rejects a stateful request that does not include a CSRF token', function () 
 
 it('allows credentialed CORS requests from the configured SPA origin', function () {
     $this->withHeaders([
-        'Origin' => 'https://app.simple-chat.test:3000',
+        'Origin' => 'https://app.simple-chat.test:8443',
         'Access-Control-Request-Method' => 'POST',
     ])->options('/api/login')
         ->assertNoContent()
-        ->assertHeader('Access-Control-Allow-Origin', 'https://app.simple-chat.test:3000')
+        ->assertHeader('Access-Control-Allow-Origin', 'https://app.simple-chat.test:8443')
         ->assertHeader('Access-Control-Allow-Credentials', 'true');
 });
 

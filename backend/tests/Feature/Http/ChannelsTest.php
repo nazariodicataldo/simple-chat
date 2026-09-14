@@ -43,12 +43,12 @@ it('rejects a guest from the private chat channel authorization endpoint', funct
 
 it('allows credentialed CORS preflight requests for channel authorization', function () {
     $this->withHeaders([
-        'Origin' => 'https://app.simple-chat.test:3000',
+        'Origin' => 'https://app.simple-chat.test:8443',
         'Access-Control-Request-Method' => 'POST',
         'Access-Control-Request-Headers' => 'Content-Type, X-XSRF-TOKEN',
     ])->options('/broadcasting/auth')
         ->assertNoContent()
-        ->assertHeader('Access-Control-Allow-Origin', 'https://app.simple-chat.test:3000')
+        ->assertHeader('Access-Control-Allow-Origin', 'https://app.simple-chat.test:8443')
         ->assertHeader('Access-Control-Allow-Credentials', 'true')
         ->assertHeader('Access-Control-Allow-Methods', 'POST')
         ->assertHeader('Access-Control-Allow-Headers', 'Content-Type, X-XSRF-TOKEN');

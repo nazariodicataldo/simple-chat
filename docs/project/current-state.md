@@ -1,11 +1,11 @@
 # Stato corrente
 
 - **Milestone corrente:** Milestone 5 — Docker (avviata 2026-09-03).
-- **Ultimo task completato:** M5-004 — Eseguire Reverb e Horizon in Compose.
+- **Ultimo task completato:** M5-005 — Esporre stack Compose con Nginx, HTTPS e WSS.
 - **Task attivo:** nessuno.
 - **Task bloccato:** nessuno.
-- **Prossimo task suggerito:** M5-005 — Esporre stack Compose con Nginx, HTTPS e WSS.
-- **Ultimo aggiornamento:** 2026-09-07.
+- **Prossimo task suggerito:** nessuno.
+- **Ultimo aggiornamento:** 2026-09-08.
 
 ## Funzionalita' esistenti
 
@@ -132,6 +132,15 @@
   l'unico consumer di `redis/default`. Backend e Horizon usano
   `REVERB_HOST=reverb`, `REVERB_PORT=8080` e `REVERB_SCHEME=http`; il browser,
   HTTPS, proxy e WSS restano M5-005.
+- M5-005 e' completato e la configurazione Nginx e' presente. Il suo contratto
+  Compose e' un solo ingresso Nginx su
+  `127.0.0.1:8443`: `app.simple-chat.test` raggiunge Next, mentre
+  `api.simple-chat.test` raggiunge Laravel o Reverb secondo il percorso.
+  PostgreSQL, Redis, backend, frontend e Reverb restano privati. `.cert/` e'
+  ignorato e contiene input locali mkcert non versionati; il percorso
+  server-side HTTPS verso l'API passa ora dalla `8443` interna di Nginx. Login,
+  CRUD, WSS e Horizon sono stati verificati nello smoke browser; M5-005 e'
+  completato.
 
 ## Test esistenti
 
@@ -145,6 +154,25 @@
   `queue:failed` e' rimasta vuota; il messaggio e' stato eliminato per ID.
   Reverb e Horizon sono stati poi fermati lasciando attivi backend, PostgreSQL
   e Redis. Non e' stata dichiarata la consegna browser.
+
+- M5-005, 2026-09-07: `docker compose config --quiet`, suite frontend (15 file,
+  86 test), lint, typecheck, suite backend (41 test, 213 assertion), Pint (62
+  file), PHPStan (42/42) e `nginx -t` con certificati temporanei in `/tmp` sono
+  riusciti. Il build Compose non ha potuto risolvere inizialmente le immagini
+  Docker Hub e la build Next non ha potuto scaricare `Outfit` da Google Fonts.
+  L'avvio Compose ha verificato PostgreSQL, Redis, backend, frontend, Reverb e
+  Horizon, ma Nginx si e' fermato per i file mkcert locali assenti; nessun
+  dominio HTTPS, login browser, WSS o smoke a due browser e' quindi dichiarato.
+
+- M5-005, 2026-09-08: dopo la generazione locale dei certificati mkcert,
+  Compose ha avviato tutti i sette servizi e Nginx e' rimasto `Up` sul solo
+  mapping `127.0.0.1:8443->443`. Il rendering server-side falliva perche'
+  `api.simple-chat.test:8443` raggiungeva Nginx dalla rete Compose ma Nginx
+  ascoltava solo sulla `443` interna; la configurazione e' stata corretta con
+  un listener interno aggiuntivo su `8443`. `nginx -t` e' riuscito, la richiesta
+  Node dal frontend a `/api/user` ha restituito `401 Unauthenticated.` e la
+  pagina pubblica ha mostrato il gate di autenticazione. Login, WSS e smoke a
+  due browser restano da verificare.
 
 - M5-003, 2026-09-06/07: Compose config e build dell'immagine frontend sono
   riusciti. Nei container temporanei `pnpm test` ha superato 15 file e 86 test;
@@ -243,6 +271,9 @@
 - La build frontend nel sandbox puo' fallire prima della compilazione perche'
   non ha connettivita' verso Google Fonts; la verifica locale dell'ambiente di
   sviluppo resta necessaria per `next/font` remoto.
+- M5-005: i certificati locali mkcert sono input ignorati e disponibili solo
+  nel workspace; non fanno parte della consegna versionata. Build Compose,
+  build Next, login Sanctum, WSS e smoke a due browser sono verificati.
 
 ## Decisioni aperte
 
@@ -292,3 +323,35 @@
   dell'host PostgreSQL Lerd nel boot Reverb aggiungendo gli override DB Compose;
   la verifica successiva ha riportato Reverb healthy e log di avvio su
   `0.0.0.0:8080`.
+
+- M5-005, 2026-09-07: `docker compose --env-file compose.env config --quiet`,
+  `docker compose ... build` (bloccato inizialmente dal DNS Docker Hub),
+  test/lint/typecheck frontend riusciti, build frontend bloccata dal download
+  di Outfit, suite backend riuscita dopo l'allineamento dei test all'origine
+  `:8443`, Pint, PHPStan, `nginx -t` con certificato temporaneo e `docker
+  compose ... down` riusciti. `docker compose ... up -d` ha avviato i servizi
+  privati ma Nginx ha terminato per l'assenza dei certificati mkcert locali;
+  smoke HTTPS/WSS e verifica browser non eseguiti.
+
+- M5-005, 2026-09-08: `docker compose ... up -d`, `ps`, log, `nginx -t`,
+  richiesta HTTPS server-side dal frontend su `api.simple-chat.test:8443` e
+  richiesta pubblica alla pagina app riusciti dopo l'aggiunta del listener
+  Nginx interno su `8443`; il gate sessione mostra ora il form di login invece
+  dell'errore di verifica sessione.
+
+- M5-005, 2026-09-08: lo sviluppatore ha riportato smoke browser con
+  registrazione, creazione, modifica e cancellazione; Firefox ha ricevuto gli
+  eventi WSS alle 10:21 locali, corrispondenti ai job Horizon `RUNNING` e
+  `DONE` delle 08:21 UTC. La build Compose ripetuta non e' riuscita per
+  `network is unreachable` verso Docker Hub; pulizia selettiva dei dati prova,
+  stop finale e chiusura del task restano da registrare.
+
+- M5-005, 2026-09-08: build Compose e build Next.js riuscite; suite backend (41
+  test, 213 assertion), Pint (62 file), PHPStan (42/42), controlli Nginx,
+  HTTPS app/API e `queue:failed` sono riusciti. Lo stack e' stato arrestato con
+  `docker compose ... down` senza `-v`; resta solo da registrare la pulizia
+  selettiva dei messaggi prova prima della chiusura del task.
+
+- M5-005, 2026-09-08: lo sviluppatore ha confermato la rimozione selettiva dei
+  messaggi prova. Tutti i criteri di accettazione sono verificati e il task e'
+  stato spostato in `docs/tasks/completed/`.

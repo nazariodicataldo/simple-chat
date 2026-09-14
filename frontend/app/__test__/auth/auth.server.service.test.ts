@@ -7,7 +7,7 @@ vi.mock("server-only", () => ({}))
 vi.mock("next/headers", () => ({ cookies }))
 vi.mock("@/lib/server-http", () => ({ serverHttp: { get } }))
 vi.mock("@/lib/backend", () => ({
-  getBackendUrl: () => "http://api.simple-chat.test",
+  getBackendUrl: () => "https://api.simple-chat.test:8443",
 }))
 
 async function loadService() {
@@ -17,7 +17,7 @@ async function loadService() {
 
 describe("server auth service", () => {
   beforeEach(() => {
-    process.env.FRONTEND_URL = "http://app.simple-chat.test:3000"
+    process.env.FRONTEND_URL = "https://app.simple-chat.test:8443"
     cookies.mockResolvedValue({ toString: () => "laravel_session=session-cookie" })
     get.mockReset()
   })
@@ -30,8 +30,8 @@ describe("server auth service", () => {
     expect(get).toHaveBeenCalledWith("/api/user", {
       headers: {
         Cookie: "laravel_session=session-cookie",
-        Origin: "http://app.simple-chat.test:3000",
-        Referer: "http://app.simple-chat.test:3000/",
+        Origin: "https://app.simple-chat.test:8443",
+        Referer: "https://app.simple-chat.test:8443/",
       },
     })
   })

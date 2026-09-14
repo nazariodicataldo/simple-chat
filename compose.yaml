@@ -31,6 +31,7 @@ services:
       dockerfile: docker/backend/Dockerfile
     environment:
       COMPOSER_CACHE_DIR: /tmp/composer-cache
+      APP_URL: https://api.simple-chat.test:8443
       DB_CONNECTION: pgsql
       DB_HOST: postgres
       DB_PORT: 5432
@@ -41,12 +42,17 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       REDIS_URL: ""
+      SESSION_DOMAIN: .simple-chat.test
+      SESSION_SECURE_COOKIE: "true"
+      SANCTUM_STATEFUL_DOMAINS: app.simple-chat.test:8443
+      CORS_ALLOWED_ORIGINS: https://app.simple-chat.test:8443
       REVERB_APP_ID: ${REVERB_APP_ID}
       REVERB_APP_KEY: ${REVERB_APP_KEY}
       REVERB_APP_SECRET: ${REVERB_APP_SECRET}
       REVERB_HOST: reverb
       REVERB_PORT: 8080
       REVERB_SCHEME: http
+      REVERB_ALLOWED_ORIGINS: app.simple-chat.test
     depends_on:
       postgres:
         condition: service_healthy
@@ -74,6 +80,7 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       REDIS_URL: ""
+      REVERB_ALLOWED_ORIGINS: app.simple-chat.test
       REVERB_APP_ID: ${REVERB_APP_ID}
       REVERB_APP_KEY: ${REVERB_APP_KEY}
       REVERB_APP_SECRET: ${REVERB_APP_SECRET}
@@ -141,15 +148,41 @@ services:
       context: .
       dockerfile: docker/frontend/Dockerfile
     environment:
-      FRONTEND_URL: http://localhost:3000
-      NEXT_PUBLIC_BACKEND_URL: http://backend
-    ports:
-      - "127.0.0.1:3000:3000"
+      FRONTEND_URL: https://app.simple-chat.test:8443
+      NEXT_PUBLIC_BACKEND_URL: https://api.simple-chat.test:8443
+      NEXT_PUBLIC_REVERB_APP_KEY: ${REVERB_APP_KEY}
+      NEXT_PUBLIC_REVERB_HOST: api.simple-chat.test
+      NEXT_PUBLIC_REVERB_PORT: 8443
+      NEXT_PUBLIC_REVERB_SCHEME: https
+      NODE_EXTRA_CA_CERTS: /etc/ssl/certs/simple-chat-mkcert-root-ca.pem
     volumes:
       - ./frontend:/app
       - frontend-node-modules:/app/node_modules
       - frontend-next:/app/.next
       - pnpm-cache:/pnpm-cache
+      - ./.cert/mkcert-root-ca.pem:/etc/ssl/certs/simple-chat-mkcert-root-ca.pem:ro
+
+  nginx:
+    image: nginx:1.29-alpine
+    depends_on:
+      backend:
+        condition: service_started
+      frontend:
+        condition: service_started
+      reverb:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:8443:443"
+    networks:
+      default:
+        aliases:
+          - app.simple-chat.test
+          - api.simple-chat.test
+    volumes:
+      - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./.cert/simple-chat.test.pem:/etc/nginx/ssl/simple-chat.test.pem:ro
+      - ./.cert/simple-chat.test-key.pem:/etc/nginx/ssl/simple-chat.test-key.pem:ro
+      - ./backend:/var/www/html:ro
 
 volumes:
   postgres-data:
