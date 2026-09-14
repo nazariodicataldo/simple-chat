@@ -1,11 +1,11 @@
 # Stato corrente
 
-- **Milestone corrente:** Milestone 5 — Docker (avviata 2026-09-03).
-- **Ultimo task completato:** M5-005 — Esporre stack Compose con Nginx, HTTPS e WSS.
+- **Milestone corrente:** Milestone 6 — Test end-to-end e CI (avviata 2026-09-14).
+- **Ultimo task completato:** M6-001 — Configurare Playwright per il Compose locale.
 - **Task attivo:** nessuno.
 - **Task bloccato:** nessuno.
 - **Prossimo task suggerito:** nessuno.
-- **Ultimo aggiornamento:** 2026-09-08.
+- **Ultimo aggiornamento:** 2026-09-14.
 
 ## Funzionalita' esistenti
 
@@ -141,8 +141,19 @@
   server-side HTTPS verso l'API passa ora dalla `8443` interna di Nginx. Login,
   CRUD, WSS e Horizon sono stati verificati nello smoke browser; M5-005 e'
   completato.
+- M6-001 aggiunge Playwright `1.63.0` come dev dependency frontend, il comando
+  `pnpm e2e` e uno smoke Chromium reale contro
+  `https://app.simple-chat.test:8443`. La configurazione non avvia servizi con
+  `webServer`, non usa mock o fallback HTTP e mantiene la verifica TLS
+  predefinita; gli spec `.e2e.ts` restano fuori dalla suite Vitest.
 
 ## Test esistenti
+
+- M6-001, 2026-09-14: con il Compose gia' avviato, `pnpm e2e` ha superato 1
+  smoke Chromium in 8,1 s sulla pagina pubblica HTTPS reale; `pnpm test` ha
+  superato 15 file e 86 test, `pnpm lint` e `pnpm typecheck` sono riusciti.
+  `docker compose ... up -d`, `ps` e `down` senza `-v` hanno verificato avvio,
+  stato dei servizi e arresto con volumi preservati.
 
 - M5-004, 2026-09-07: `docker compose config --quiet`, build e avvio di
   PostgreSQL, Redis, backend, Reverb e Horizon riusciti. PostgreSQL e Redis
