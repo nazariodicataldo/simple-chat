@@ -1,0 +1,16 @@
+services:
+  backend:
+    environment:
+      # I test di autenticazione cifrano i cookie.
+      # La chiave fittizia serve solo alla CI e non e' un segreto.
+      APP_KEY: base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+
+  frontend:
+    # I controlli CI non chiamano servizi HTTPS: il certificato locale non deve essere richiesto.
+    environment:
+      NODE_EXTRA_CA_CERTS: ""
+    volumes: !override
+      - ./frontend:/app
+      - frontend-node-modules:/app/node_modules
+      - frontend-next:/app/.next
+      - pnpm-cache:/pnpm-cache

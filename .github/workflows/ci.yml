@@ -1,0 +1,61 @@
+name: Application quality
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  COMPOSE_FILE: compose.yaml:compose.ci.yaml
+  COMPOSE_ENV_FILE: compose.env.example
+
+jobs:
+  backend:
+    runs-on: ubuntu-24.04
+    steps:
+      # Il commit del run deve essere quello verificato, anche per le pull request.
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1, verificato il 2026-09-15
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Build backend Compose service
+        run: docker compose --env-file "$COMPOSE_ENV_FILE" build backend
+
+      - name: Backend tests
+        run: docker compose --env-file "$COMPOSE_ENV_FILE" run --rm --no-deps backend composer test
+
+      - name: Backend style check
+        run: docker compose --env-file "$COMPOSE_ENV_FILE" run --rm --no-deps backend ./vendor/bin/pint --test
+
+      - name: Backend static analysis
+        run: docker compose --env-file "$COMPOSE_ENV_FILE" run --rm --no-deps backend ./vendor/bin/phpstan analyse --memory-limit=512M
+
+  frontend:
+    runs-on: ubuntu-24.04
+    steps:
+      # Il commit del run deve essere quello verificato, anche per le pull request.
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1, verificato il 2026-09-15
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Build frontend Compose service
+        run: docker compose --env-file "$COMPOSE_ENV_FILE" build frontend
+
+      - name: Frontend tests
+        run: docker compose --env-file "$COMPOSE_ENV_FILE" run --rm --no-deps frontend pnpm test
+
+      - name: Frontend lint
+        run: docker compose --env-file "$COMPOSE_ENV_FILE" run --rm --no-deps frontend pnpm lint
+
+      - name: Frontend typecheck
+        run: docker compose --env-file "$COMPOSE_ENV_FILE" run --rm --no-deps frontend pnpm typecheck
+
+      - name: Frontend build
+        run: docker compose --env-file "$COMPOSE_ENV_FILE" run --rm --no-deps frontend pnpm build

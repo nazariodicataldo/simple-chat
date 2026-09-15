@@ -2,9 +2,10 @@
 
 - **Milestone corrente:** Milestone 6 — Test end-to-end e CI (avviata 2026-09-14).
 - **Ultimo task completato:** M6-002 — Verificare realtime con Playwright e due context.
-- **Task attivo:** nessuno.
+- **Task attivo:** M6-003 — Aggiungere CI per la qualita' applicativa.
 - **Task bloccato:** nessuno.
-- **Prossimo task suggerito:** M6-003 — Aggiungere CI per la qualita' applicativa.
+- **Prossimo task suggerito:** M6-003 — completare la verifica GitHub Actions
+  prima di passare a M6-004.
 - **Ultimo aggiornamento:** 2026-09-15.
 
 ## Funzionalita' esistenti
@@ -153,6 +154,14 @@
   quindi rimuove i messaggi prova tramite la UI senza toccare utenti o volumi.
 
 ## Test esistenti
+
+- M6-003, 2026-09-15: la configurazione Compose con override CI e' valida;
+  backend (41 test, 213 assertion), Pint (62 file), PHPStan, frontend (15 file,
+  86 test), lint, typecheck e build sono riusciti nei servizi dedicati con
+  `--no-deps`. La build backend da immagini fresche e' riuscita; il test
+  backend e' riuscito anche da una copia senza `backend/.env` grazie alla
+  `APP_KEY` fittizia dell'override CI. Il run GitHub Actions non e' ancora stato
+  osservato.
 
 - M6-001, 2026-09-14: con il Compose gia' avviato, `pnpm e2e` ha superato 1
   smoke Chromium in 8,1 s sulla pagina pubblica HTTPS reale; `pnpm test` ha
