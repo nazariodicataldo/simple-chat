@@ -1,11 +1,10 @@
 # Stato corrente
 
 - **Milestone corrente:** Milestone 6 — Test end-to-end e CI (avviata 2026-09-14).
-- **Ultimo task completato:** M6-002 — Verificare realtime con Playwright e due context.
-- **Task attivo:** M6-003 — Aggiungere CI per la qualita' applicativa.
+- **Ultimo task completato:** M6-003 — Aggiungere CI per la qualita' applicativa.
+- **Task attivo:** nessuno.
 - **Task bloccato:** nessuno.
-- **Prossimo task suggerito:** M6-003 — completare la verifica GitHub Actions
-  prima di passare a M6-004.
+- **Prossimo task suggerito:** M6-004 — Aggiungere E2E Playwright alla CI.
 - **Ultimo aggiornamento:** 2026-09-15.
 
 ## Funzionalita' esistenti
@@ -160,8 +159,9 @@
   86 test), lint, typecheck e build sono riusciti nei servizi dedicati con
   `--no-deps`. La build backend da immagini fresche e' riuscita; il test
   backend e' riuscito anche da una copia senza `backend/.env` grazie alla
-  `APP_KEY` fittizia dell'override CI. Il run GitHub Actions non e' ancora stato
-  osservato.
+  `APP_KEY` fittizia dell'override CI. Il run GitHub Actions `35000393537` e'
+  riuscito sul commit `47baedd0aac3121f08f61f5c3c0b1f1ce1cd60f4`, con entrambi i
+  job backend e frontend verdi.
 
 - M6-001, 2026-09-14: con il Compose gia' avviato, `pnpm e2e` ha superato 1
   smoke Chromium in 8,1 s sulla pagina pubblica HTTPS reale; `pnpm test` ha

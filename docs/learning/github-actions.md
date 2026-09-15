@@ -118,9 +118,9 @@ Sostituendo servizio e comando si ripetono gli altri step del workflow.
 Questo workflow non avvia browser, domini `.test`, TLS, PostgreSQL, Redis,
 Horizon, Reverb o Echo. Non dimostra quindi login o realtime: quel percorso e'
 responsabilita' di M6-004. Non include neppure cache, matrix, badge, deploy o
-segreti. La prima verifica locale di M6-003 ha completato i comandi con le
-immagini gia' presenti, mentre una build da zero e un run GitHub restano
-verifiche dipendenti da rete/runner.
+segreti. La verifica di M6-003 ha completato i comandi locali, la build da zero
+del backend e il run GitHub; build e run restano comunque verifiche dipendenti
+da rete/runner quando vengono ripetuti.
 
 Errore comune: trattare un build Docker riuscito come prova della chat. Il build
 prova che l'immagine si costruisce; i comandi successivi provano rispettivamente

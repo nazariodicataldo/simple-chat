@@ -1,9 +1,9 @@
 # M6-003 — Aggiungere CI per la qualita' applicativa
 
-- **Stato:** attivo
+- **Stato:** completato
 - **Milestone:** Milestone 6 — Test end-to-end e CI
 - **Data di apertura:** 2026-09-15
-- **Data di chiusura:**
+- **Data di chiusura:** 2026-09-15
 - **Dipendenze:** M5-005
 
 ## Contesto
@@ -84,9 +84,9 @@ controlli.
 
 - [x] Esiste un workflow CI essenziale per push su `master`, pull request e
   avvio manuale.
-- [ ] Il backend e il frontend eseguono tutti i controlli previsti con output
-  distinguibile nel run GitHub; la struttura e' verificata localmente, ma il run
-  remoto non e' ancora disponibile.
+- [x] Il backend e il frontend eseguono tutti i controlli previsti con output
+  distinguibile nel run GitHub `35000393537`: entrambi i job sono conclusi con
+  `success` sul commit `47baedd0aac3121f08f61f5c3c0b1f1ce1cd60f4`.
 - [x] La CI non usa Lerd, dati personali, certificati locali o secret reali.
 - [x] La documentazione indica trigger, job e limiti attuali del workflow.
 
@@ -146,8 +146,9 @@ quello su cui l'utente puo' abilitare e osservare Actions.
   riusciti.
 - `pnpm lint`, `pnpm typecheck` e `pnpm build` nel servizio Compose frontend:
   tutti riusciti.
-- La verifica GitHub Actions non e' stata ancora eseguita: il workflow corretto
-  deve essere pubblicato e avviato su GitHub.
+- Il run GitHub Actions `35000393537` e' riuscito su `push` del commit
+  `47baedd0aac3121f08f61f5c3c0b1f1ce1cd60f4`: il job `backend` (`104487065907`)
+  e il job `frontend` (`104487066232`) hanno superato ogni step previsto.
 
 ## Problemi residui
 
@@ -155,12 +156,10 @@ quello su cui l'utente puo' abilitare e osservare Actions.
   sandbox e il successivo timeout DNS transitorio verso Docker Hub.
 - La copia senza `backend/.env` ha prodotto warning gia' emessi dalla suite per
   riferimenti al file assente, ma nessun test fallito e exit code 0.
-- Prima di spostare il task in `completed/` serve un run GitHub Actions del
-  commit, verificando trigger, commit controllato, due job e output separato.
+- Nessun problema residuo per lo scope di M6-003.
 
 ## Riepilogo finale
 
 Il workflow CI e il supporto Compose dedicato sono implementati, senza modifiche
 al codice applicativo, alle dipendenze o allo stack runtime. La build da immagini
-fresche e il test senza `backend/.env` sono verificati; il task resta attivo finche'
-non sara' verificato il run remoto.
+fresche, il test senza `backend/.env` e il run GitHub Actions sono verificati.
