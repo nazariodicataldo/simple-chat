@@ -1,11 +1,11 @@
 # Stato corrente
 
 - **Milestone corrente:** Milestone 6 — Test end-to-end e CI (avviata 2026-09-14).
-- **Ultimo task completato:** M6-001 — Configurare Playwright per il Compose locale.
+- **Ultimo task completato:** M6-002 — Verificare realtime con Playwright e due context.
 - **Task attivo:** nessuno.
 - **Task bloccato:** nessuno.
-- **Prossimo task suggerito:** nessuno.
-- **Ultimo aggiornamento:** 2026-09-14.
+- **Prossimo task suggerito:** M6-003 — Aggiungere CI per la qualita' applicativa.
+- **Ultimo aggiornamento:** 2026-09-15.
 
 ## Funzionalita' esistenti
 
@@ -146,6 +146,11 @@
   `https://app.simple-chat.test:8443`. La configurazione non avvia servizi con
   `webServer`, non usa mock o fallback HTTP e mantiene la verifica TLS
   predefinita; gli spec `.e2e.ts` restano fuori dalla suite Vitest.
+- M6-002 aggiunge lo scenario Playwright Chromium a due `BrowserContext`
+  distinti: due registrazioni dalla UI, poi CREATE, UPDATE e DELETE di A
+  ricevuti una sola volta da B senza refresh. Il test usa il Compose reale,
+  attende l'apertura del socket e la subscription `private-chat` di Reverb,
+  quindi rimuove i messaggi prova tramite la UI senza toccare utenti o volumi.
 
 ## Test esistenti
 
@@ -154,6 +159,15 @@
   superato 15 file e 86 test, `pnpm lint` e `pnpm typecheck` sono riusciti.
   `docker compose ... up -d`, `ps` e `down` senza `-v` hanno verificato avvio,
   stato dei servizi e arresto con volumi preservati.
+
+- M6-002, 2026-09-15: `docker compose ... config --quiet`, avvio e stato dei
+  sette servizi, `cd frontend && pnpm e2e` con 2 test Chromium superati in
+  15,4 s, log backend/Reverb/Horizon/Nginx e `down` senza `-v` sono riusciti.
+  Il percorso reale ha verificato registrazione UI, isolamento dei context,
+  CREATE/UPDATE/DELETE via HTTP, Redis/default, Horizon, Reverb ed Echo,
+  subscription privata, consegna singola a B e cleanup UI. `pnpm test` ha
+  superato 15 file e 86 test; lint, typecheck, Prettier e `git diff --check`
+  sono riusciti.
 
 - M5-004, 2026-09-07: `docker compose config --quiet`, build e avvio di
   PostgreSQL, Redis, backend, Reverb e Horizon riusciti. PostgreSQL e Redis
