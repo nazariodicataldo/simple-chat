@@ -50,16 +50,19 @@ backend esegue `composer test`, Pint con `--test` e PHPStan con
 `--memory-limit=512M`; il job frontend esegue `pnpm test`, lint, typecheck e
 build.
 
-L'unica action e' `actions/checkout` fissata al commit
-`3d3c42e5aac5ba805825da76410c181273ba90b1`, annotato come `v7.0.1` nel
-workflow. Il permesso globale e' limitato a `contents: read`; nessun secret o
-dato applicativo viene richiesto.
+Le action `actions/checkout`, `actions/setup-node` e
+`actions/upload-artifact` sono fissate nel workflow a commit SHA completi e
+immutabili, con release e data di verifica annotate accanto a ogni riferimento.
+Il permesso globale e' limitato a `contents: read`; nessun secret o dato
+applicativo viene richiesto.
 
 ## Lockfile e controlli
 
-L'entrypoint backend esegue `composer install`; quello frontend esegue `pnpm
-install --frozen-lockfile`. In entrambi i casi una discrepanza dal lockfile fa
-fallire il job invece di modificare le dipendenze durante la CI.
+Il bootstrap CI esegue `composer install` una sola volta prima dei controlli
+backend e dell'avvio E2E; l'entrypoint locale continua a preparare Composer
+automaticamente. L'entrypoint frontend esegue `pnpm install --frozen-lockfile`.
+In entrambi i casi una discrepanza dal lockfile fa fallire il job invece di
+modificare le dipendenze durante la CI.
 
 I controlli restano gli stessi comandi gia' usati nel progetto:
 
@@ -115,12 +118,50 @@ COMPOSE_FILE=compose.yaml:compose.ci.yaml docker compose \
 
 Sostituendo servizio e comando si ripetono gli altri step del workflow.
 
-Questo workflow non avvia browser, domini `.test`, TLS, PostgreSQL, Redis,
-Horizon, Reverb o Echo. Non dimostra quindi login o realtime: quel percorso e'
-responsabilita' di M6-004. Non include neppure cache, matrix, badge, deploy o
-segreti. La verifica di M6-003 ha completato i comandi locali, la build da zero
-del backend e il run GitHub; build e run restano comunque verifiche dipendenti
-da rete/runner quando vengono ripetuti.
+## Job E2E realtime (M6-004)
+
+Il workflow include un terzo job, separato dai controlli di qualita': non puo'
+usare `--no-deps`, perche' deve avviare PostgreSQL, Redis, backend, Horizon,
+Reverb, frontend e Nginx reali. Riutilizza `compose.yaml:compose.ci.yaml`,
+senza un secondo override o un profilo Compose E2E alternativo.
+
+Prima dell'avvio, il job genera nel workspace effimero una CA e un certificato
+foglia con SAN per `app.simple-chat.test` e `api.simple-chat.test`, quindi
+espone i loro path al proprio environment. `compose.ci.yaml` usa tali valori
+per sostituire i bind mount TLS del
+profilo locale; il frontend Node riceve `NODE_EXTRA_CA_CERTS` con il path
+interno della CA, cosi' il rendering server-side continua a validare HTTPS
+verso l'API. `compose.env.example` conserva invece i valori runtime fittizi.
+
+Il merge dei volumi fra Compose base e override non va dato per scontato. Prima
+di `up`, il job ispeziona `docker compose config` risolto con i path CI:
+la CA frontend, il certificato Nginx e la chiave Nginx devono comparire una
+sola volta ciascuno, con source CI. Un bind mount `.cert/` mkcert rimasto o un
+duplicato rende la configurazione non valida per l'E2E, anche se lo stack
+riesce ad avviarsi.
+
+Il runner mappa i due domini a `127.0.0.1`; dopo health Compose attende il log
+Next `✓ Ready` e una richiesta HTTPS pubblica validata con `curl --cacert`. Non
+bastano `up` o un tempo fisso: Nginx puo' essere avviato mentre Next non e'
+ancora pronto e restituire `502`.
+
+Il browser non importa la CA effimera. Per questo Playwright riceve
+`ignoreHTTPSErrors` solo quando il job E2E imposta una variabile esplicita,
+ad esempio `PLAYWRIGHT_IGNORE_HTTPS_ERRORS=true`; non deve essere dedotto dal
+generico `CI=true`. Il bypass riguarda soltanto il trust del browser: HTTPS,
+WSS, cookie Secure, Sanctum, CORS, Nginx e routing restano reali. Il run locale
+non imposta la variabile e continua a richiedere mkcert trusted.
+
+In caso di failure il job conserva log Compose e artifact Playwright utili,
+ma non chiavi della CA, cookie, token o trace che possano contenere dati di
+sessione. Il cleanup finale `docker compose down -v` e' sicuro soltanto nel
+runner effimero e deve eseguire anche dopo una failure.
+
+Il job E2E avvia browser, domini `.test`, TLS, PostgreSQL, Redis, Horizon,
+Reverb ed Echo e raccoglie log/report solo in caso di failure. La verifica
+effettiva del job su GitHub Actions resta dipendente dal runner e dalla rete e
+deve essere eseguita dopo la pubblicazione del workflow. Il workflow non
+include cache, matrix, badge, deploy o segreti.
 
 Errore comune: trattare un build Docker riuscito come prova della chat. Il build
 prova che l'immagine si costruisce; i comandi successivi provano rispettivamente
@@ -128,5 +169,5 @@ test, stile, analisi statica e build frontend. L'integrazione reale richiede
 invece lo stack completo.
 
 Esercizio: spiega perche' il test backend puo' usare `--no-deps`, mentre il job
-realtime futuro non potra' farlo. Poi indica perche' uno SHA di action produce
+realtime non puo' farlo. Poi indica perche' uno SHA di action produce
 un run piu' riproducibile di un tag major.

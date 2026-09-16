@@ -10,7 +10,10 @@ mkdir -p \
     storage/logs \
     bootstrap/cache
 
-composer install --no-interaction --prefer-dist
+# In CI il job prepara il volume vendor una sola volta prima dell'avvio concorrente.
+if [ "${SKIP_COMPOSER_INSTALL:-}" != "true" ]; then
+    composer install --no-interaction --prefer-dist
+fi
 
 # Le migration accompagnano soltanto l'avvio del processo applicativo, non i comandi di bootstrap.
 if [ "$1" = "php-fpm" ]; then

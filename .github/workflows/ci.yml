@@ -27,6 +27,9 @@ jobs:
       - name: Build backend Compose service
         run: docker compose --env-file "$COMPOSE_ENV_FILE" build backend
 
+      - name: Install backend dependencies
+        run: docker compose --env-file "$COMPOSE_ENV_FILE" run --rm --no-deps --entrypoint composer backend install --no-interaction --prefer-dist
+
       - name: Backend tests
         run: docker compose --env-file "$COMPOSE_ENV_FILE" run --rm --no-deps backend composer test
 
@@ -59,3 +62,179 @@ jobs:
 
       - name: Frontend build
         run: docker compose --env-file "$COMPOSE_ENV_FILE" run --rm --no-deps frontend pnpm build
+
+  e2e:
+    name: Realtime Compose E2E
+    runs-on: ubuntu-24.04
+    steps:
+      # Il commit del run deve essere quello verificato, anche per le pull request.
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1, verificato il 2026-09-15
+        with:
+          ref: ${{ github.sha }}
+
+      - name: Generate ephemeral CI TLS
+        env:
+          CI_TLS_DIR: ${{ runner.temp }}/simple-chat-tls
+        run: |
+          set -euo pipefail
+          umask 077
+          mkdir -p "$CI_TLS_DIR"
+
+          openssl genrsa -out "$CI_TLS_DIR/ca-key.pem" 2048
+          openssl req -x509 -new -nodes \
+            -key "$CI_TLS_DIR/ca-key.pem" \
+            -sha256 -days 1 \
+            -out "$CI_TLS_DIR/ca.pem" \
+            -subj "/CN=Simple Chat CI Root CA" \
+            -addext "basicConstraints=critical,CA:TRUE,pathlen:1" \
+            -addext "keyUsage=critical,keyCertSign,cRLSign"
+
+          openssl genrsa -out "$CI_TLS_DIR/simple-chat.test-key.pem" 2048
+          openssl req -new \
+            -key "$CI_TLS_DIR/simple-chat.test-key.pem" \
+            -out "$CI_TLS_DIR/simple-chat.test.csr" \
+            -subj "/CN=app.simple-chat.test"
+          printf '%s\n' \
+            'basicConstraints=CA:FALSE' \
+            'keyUsage=digitalSignature,keyEncipherment' \
+            'extendedKeyUsage=serverAuth' \
+            'subjectAltName=DNS:app.simple-chat.test,DNS:api.simple-chat.test' \
+            > "$CI_TLS_DIR/san.cnf"
+          openssl x509 -req \
+            -in "$CI_TLS_DIR/simple-chat.test.csr" \
+            -CA "$CI_TLS_DIR/ca.pem" \
+            -CAkey "$CI_TLS_DIR/ca-key.pem" \
+            -CAcreateserial \
+            -out "$CI_TLS_DIR/simple-chat.test.pem" \
+            -days 1 -sha256 \
+            -extfile "$CI_TLS_DIR/san.cnf"
+
+          {
+            echo "CI_TLS_CA_PATH=$CI_TLS_DIR/ca.pem"
+            echo "CI_TLS_CERT_PATH=$CI_TLS_DIR/simple-chat.test.pem"
+            echo "CI_TLS_KEY_PATH=$CI_TLS_DIR/simple-chat.test-key.pem"
+            echo 'CI_NODE_EXTRA_CA_CERTS=/etc/ssl/certs/simple-chat-ci-root-ca.pem'
+          } >> "$GITHUB_ENV"
+
+      - name: Resolve CI domains
+        run: |
+          set -euo pipefail
+          printf '%s\n' '127.0.0.1 app.simple-chat.test api.simple-chat.test' | sudo tee -a /etc/hosts
+          getent hosts app.simple-chat.test api.simple-chat.test
+
+      - name: Validate resolved Compose TLS mounts
+        run: |
+          set -euo pipefail
+          resolved_config="$RUNNER_TEMP/simple-chat-compose.json"
+          docker compose --env-file "$COMPOSE_ENV_FILE" config --format json > "$resolved_config"
+
+          jq -e \
+            --arg ca "$CI_TLS_CA_PATH" \
+            --arg cert "$CI_TLS_CERT_PATH" \
+            --arg key "$CI_TLS_KEY_PATH" \
+            '
+              ([.services.frontend.volumes[] | select(.target == "/etc/ssl/certs/simple-chat-ci-root-ca.pem")] | length == 1 and .[0].source == $ca)
+              and ([.services.nginx.volumes[] | select(.target == "/etc/nginx/ssl/simple-chat.test.pem")] | length == 1 and .[0].source == $cert)
+              and ([.services.nginx.volumes[] | select(.target == "/etc/nginx/ssl/simple-chat.test-key.pem")] | length == 1 and .[0].source == $key)
+              and ([.services[].volumes[]? | select(.source | contains(".cert/"))] | length == 0)
+            ' "$resolved_config"
+          jq -c '{frontend: [.services.frontend.volumes[] | select(.target == "/etc/ssl/certs/simple-chat-ci-root-ca.pem")], nginx: [.services.nginx.volumes[] | select(.target | startswith("/etc/nginx/ssl/"))]}' "$resolved_config"
+
+      - name: Build and start full Compose stack
+        run: |
+          set -euo pipefail
+          docker compose --env-file "$COMPOSE_ENV_FILE" build
+          docker compose --env-file "$COMPOSE_ENV_FILE" up -d postgres redis
+          docker compose --env-file "$COMPOSE_ENV_FILE" run --rm --no-deps --entrypoint composer backend install --no-interaction --prefer-dist
+          docker compose --env-file "$COMPOSE_ENV_FILE" up -d backend reverb horizon frontend nginx
+
+      - name: Wait for Compose health
+        run: |
+          set -euo pipefail
+
+          wait_for_health() {
+            local service="$1"
+            local deadline=$((SECONDS + 180))
+            local container_id
+            local health
+
+            while (( SECONDS < deadline )); do
+              container_id="$(docker compose --env-file "$COMPOSE_ENV_FILE" ps -q "$service")"
+              if [[ -n "$container_id" ]]; then
+                health="$(docker inspect -f '{{.State.Health.Status}}' "$container_id")"
+                if [[ "$health" == "healthy" ]]; then
+                  return 0
+                fi
+                if [[ "$health" == "unhealthy" ]]; then
+                  echo "$service healthcheck failed"
+                  return 1
+                fi
+              fi
+              sleep 2
+            done
+
+            echo "Timeout waiting for $service health"
+            return 1
+          }
+
+          wait_for_health postgres
+          wait_for_health redis
+          wait_for_health reverb
+
+      - name: Wait for Next readiness
+        run: |
+          set -euo pipefail
+          deadline=$((SECONDS + 180))
+          while (( SECONDS < deadline )); do
+            if docker compose --env-file "$COMPOSE_ENV_FILE" logs frontend 2>&1 | grep -Fq '✓ Ready'; then
+              exit 0
+            fi
+            sleep 2
+          done
+          echo 'Next non ha raggiunto la readiness ✓ Ready'
+          exit 1
+
+      - name: Validate public HTTPS readiness
+        run: curl --fail --silent --show-error --cacert "$CI_TLS_CA_PATH" https://app.simple-chat.test:8443/
+
+      - name: Set up Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0, verificato il 2026-09-16
+        with:
+          # La versione del runner deve coincidere con quella dell'immagine frontend.
+          node-version: 24.19.0
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: |
+          corepack enable
+          corepack install --global pnpm@11.20.0
+          pnpm install --frozen-lockfile
+
+      - name: Install Playwright Chromium
+        working-directory: frontend
+        run: pnpm exec playwright install --with-deps chromium
+
+      - name: Run realtime Playwright E2E
+        working-directory: frontend
+        env:
+          PLAYWRIGHT_IGNORE_HTTPS_ERRORS: "true"
+        run: pnpm e2e
+
+      - name: Collect Compose logs after failure
+        if: ${{ failure() }}
+        run: docker compose --env-file "$COMPOSE_ENV_FILE" logs --no-color > "$RUNNER_TEMP/compose.log"
+
+      - name: Upload E2E diagnostics after failure
+        if: ${{ failure() }}
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2, verificato il 2026-09-16
+        with:
+          name: realtime-compose-e2e-diagnostics
+          if-no-files-found: ignore
+          path: |
+            ${{ runner.temp }}/compose.log
+            frontend/playwright-report
+
+      - name: Tear down CI Compose stack
+        if: ${{ always() }}
+        run: docker compose --env-file "$COMPOSE_ENV_FILE" down -v --remove-orphans

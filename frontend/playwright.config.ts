@@ -10,7 +10,9 @@ export default defineConfig({
   // Il runner si collega al Compose gia' avviato: nessun servizio deve essere gestito dal test.
   use: {
     baseURL: "https://app.simple-chat.test:8443",
-    trace: "on-first-retry",
+    // In CI il report resta utile senza allegare trace che potrebbero contenere sessioni.
+    trace: process.env.CI ? "off" : "on-first-retry",
+    ignoreHTTPSErrors: process.env.PLAYWRIGHT_IGNORE_HTTPS_ERRORS === "true",
   },
   projects: [
     {

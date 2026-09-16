@@ -2,10 +2,11 @@
 
 - **Milestone corrente:** Milestone 6 — Test end-to-end e CI (avviata 2026-09-14).
 - **Ultimo task completato:** M6-003 — Aggiungere CI per la qualita' applicativa.
-- **Task attivo:** nessuno.
+- **Task attivo:** M6-004 — Eseguire realtime Compose in CI.
 - **Task bloccato:** nessuno.
-- **Prossimo task suggerito:** M6-004 — Aggiungere E2E Playwright alla CI.
-- **Ultimo aggiornamento:** 2026-09-15.
+- **Prossimo task suggerito:** completare M6-004 — Eseguire realtime Compose
+  in CI.
+- **Ultimo aggiornamento:** 2026-09-16.
 
 ## Funzionalita' esistenti
 
@@ -151,6 +152,16 @@
   ricevuti una sola volta da B senza refresh. Il test usa il Compose reale,
   attende l'apertura del socket e la subscription `private-chat` di Reverb,
   quindi rimuove i messaggi prova tramite la UI senza toccare utenti o volumi.
+- M6-004 implementa il job GitHub effimero per lo scenario M6-002: il job
+  genera CA e certificato SAN, inietta i path nell'environment e riusa
+  `compose.yaml:compose.ci.yaml` per rimpiazzare i mount TLS locali e fornire
+  la CA a Node. Il bootstrap CI installa Composer in modo sequenziale, poi
+  avvia i servizi saltando solo il secondo `composer install` sul volume
+  condiviso; directory runtime e migration restano gestite dall'entrypoint.
+  Prima dell'avvio verifica la configurazione risolta, senza mount mkcert
+  residui o duplicati, attende health/`✓ Ready`/HTTPS e poi esegue Chromium con
+  `ignoreHTTPSErrors` soltanto tramite variabile esplicita. Il run reale GitHub
+  Actions e' ancora da verificare, quindi il task resta attivo.
 
 ## Test esistenti
 
@@ -177,6 +188,18 @@
   subscription privata, consegna singola a B e cleanup UI. `pnpm test` ha
   superato 15 file e 86 test; lint, typecheck, Prettier e `git diff --check`
   sono riusciti.
+
+- M6-004, 2026-09-16: la validazione locale della CA/SAN e della configurazione
+  risolta con `compose.yaml:compose.ci.yaml` ha verificato i tre mount TLS CI
+  singoli e l'assenza di source `.cert/`; il filtro `jq` gestisce anche servizi
+  senza `volumes` e continua a rifiutare residue `.cert/`. Il controllo statico
+  delle action verifica SHA Git completi. La prima prova di avvio concorrente
+  ha riprodotto una race Composer sul volume `backend-vendor`; il bootstrap CI
+  sequenziale e il flag CI che salta solo Composer negli entrypoint la eliminano. Build/avvio
+  completo locale, HTTPS `200`, Playwright realtime (`2 passed`), `pnpm test`
+  (15 file, 86 test), test backend (41 test), Pint (62 file), PHPStan, lint,
+  typecheck, parsing YAML e `git diff --check` sono riusciti. Il run GitHub
+  Actions resta da eseguire.
 
 - M5-004, 2026-09-07: `docker compose config --quiet`, build e avvio di
   PostgreSQL, Redis, backend, Reverb e Horizon riusciti. PostgreSQL e Redis
