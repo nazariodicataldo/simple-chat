@@ -171,6 +171,8 @@ Docker Compose e gli strumenti di generazione OpenSSL disponibili.
   Node.
 - `frontend/playwright.config.ts`: bypass TLS esplicito solo per CI e trace
   disattivate nel runner.
+- `frontend/next.config.ts`: root Turbopack esplicita per il bind mount
+  `/app` del container.
 - `docs/learning/github-actions.md` e `docs/project/current-state.md`.
 
 ## Risultati dei controlli
@@ -202,18 +204,24 @@ Docker Compose e gli strumenti di generazione OpenSSL disponibili.
 - Gli script `run` del workflow hanno superato `bash -n`.
 - Frontend: `pnpm test` (15 file, 86 test), `pnpm lint` e `pnpm typecheck`
   sono riusciti.
+- Il primo run remoto `35099896680` ha raggiunto `✓ Ready` e la richiesta di
+  readiness HTTPS `200`, ma il frontend ha poi terminato: Turbopack deduceva
+  `/app/app` come workspace root e non risolveva `next/package.json`. Nginx ha
+  quindi restituito `502` alle navigazioni Playwright dei due test. La root
+  esplicita in `next.config.ts` ha superato la prova locale con lo stesso
+  override CI: smoke mirato, due E2E realtime, lint, typecheck e build sono
+  riusciti; il frontend e' rimasto `Up`.
 
 ## Problemi residui
 
 - Il bloccante del filtro `jq`, la regressione dei tag mobili delle action e la
   race Composer del bootstrap Compose sono stati corretti e verificati; non
   restano problemi statici o runtime locali di questo scope.
-- Il run reale su GitHub Actions resta da eseguire; il task rimane attivo finche'
-  il runner remoto non conferma lo stesso scenario e il cleanup dopo eventuali
-  failure.
-- La verifica residua richiede pubblicare il workflow e avviarlo su un runner
-  GitHub effimero, controllando log Horizon/Reverb, report E2E e cleanup
-  `down -v` anche dopo una failure.
+- Il primo run reale GitHub Actions ha rilevato il difetto Turbopack; il task
+  rimane attivo finche' il rerun sul commit corretto non conferma lo scenario e
+  il cleanup dopo eventuali failure.
+- La verifica residua richiede pubblicare la correzione e controllare nel nuovo
+  runner effimero log Horizon/Reverb, report E2E e cleanup `down -v`.
 
 ## Riepilogo finale
 

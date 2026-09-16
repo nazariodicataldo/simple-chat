@@ -160,8 +160,10 @@
   condiviso; directory runtime e migration restano gestite dall'entrypoint.
   Prima dell'avvio verifica la configurazione risolta, senza mount mkcert
   residui o duplicati, attende health/`✓ Ready`/HTTPS e poi esegue Chromium con
-  `ignoreHTTPSErrors` soltanto tramite variabile esplicita. Il run reale GitHub
-  Actions e' ancora da verificare, quindi il task resta attivo.
+  `ignoreHTTPSErrors` soltanto tramite variabile esplicita. Il primo run reale
+  GitHub Actions ha rilevato un crash Turbopack del frontend dopo la richiesta
+  di readiness HTTPS; la correzione locale attende il rerun remoto, quindi il
+  task resta attivo.
 
 ## Test esistenti
 
@@ -198,8 +200,13 @@
   sequenziale e il flag CI che salta solo Composer negli entrypoint la eliminano. Build/avvio
   completo locale, HTTPS `200`, Playwright realtime (`2 passed`), `pnpm test`
   (15 file, 86 test), test backend (41 test), Pint (62 file), PHPStan, lint,
-  typecheck, parsing YAML e `git diff --check` sono riusciti. Il run GitHub
-  Actions resta da eseguire.
+  typecheck, parsing YAML e `git diff --check` sono riusciti. Il primo run
+  GitHub Actions `35099896680` ha eseguito la richiesta di readiness HTTPS con
+  esito `200`, poi Next deduceva `/app/app` come root Turbopack e terminava;
+  Nginx restituiva quindi `502` alle navigazioni Playwright. La correzione
+  imposta `turbopack.root` sul progetto `/app`; con lo stesso override CI,
+  smoke mirato, due E2E, lint, typecheck e build sono riusciti e il frontend e'
+  rimasto Up. Il rerun GitHub resta necessario prima del completamento.
 
 - M5-004, 2026-09-07: `docker compose config --quiet`, build e avvio di
   PostgreSQL, Redis, backend, Reverb e Horizon riusciti. PostgreSQL e Redis
