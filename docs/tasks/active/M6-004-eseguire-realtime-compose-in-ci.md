@@ -167,12 +167,11 @@ Docker Compose e gli strumenti di generazione OpenSSL disponibili.
 
 - `.github/workflows/ci.yml`: job E2E Compose, TLS effimero, readiness,
   diagnostica e cleanup.
-- `compose.ci.yaml`: sostituzione dei mount TLS locali e path CA interno a
-  Node.
+- `compose.ci.yaml`: sostituzione dei mount TLS locali e path CA interno a Node.
 - `frontend/playwright.config.ts`: bypass TLS esplicito solo per CI e trace
   disattivate nel runner.
-- `frontend/next.config.ts`: root Turbopack esplicita per il bind mount
-  `/app` del container.
+- `frontend/next.config.ts`: marker diagnostico temporaneo per confrontare la
+  root effettiva del processo Next nel runner GitHub.
 - `docs/learning/github-actions.md` e `docs/project/current-state.md`.
 
 ## Risultati dei controlli
@@ -204,22 +203,42 @@ Docker Compose e gli strumenti di generazione OpenSSL disponibili.
 - Gli script `run` del workflow hanno superato `bash -n`.
 - Frontend: `pnpm test` (15 file, 86 test), `pnpm lint` e `pnpm typecheck`
   sono riusciti.
-- Il primo run remoto `35099896680` ha raggiunto `✓ Ready` e la richiesta di
-  readiness HTTPS `200`, ma il frontend ha poi terminato: Turbopack deduceva
-  `/app/app` come workspace root e non risolveva `next/package.json`. Nginx ha
-  quindi restituito `502` alle navigazioni Playwright dei due test. La root
-  esplicita in `next.config.ts` ha superato la prova locale con lo stesso
-  override CI: smoke mirato, due E2E realtime, lint, typecheck e build sono
-  riusciti; il frontend e' rimasto `Up`.
+- I run remoti `35099896680` e `35103530177` hanno raggiunto `✓ Ready` e la
+  richiesta di readiness HTTPS `200`, ma il frontend ha poi terminato durante
+  la compilazione Turbopack: il log segnala `/app/app` e `next/package.json`.
+  La root esplicita in `next.config.ts` non ha cambiato il secondo run e viene
+  rimossa. Non viene introdotto un compilatore alternativo: il rerun GitHub
+  resta necessario per una diagnosi riproducibile sul runner.
+- La riproduzione manuale senza workaround alternativo ha superato la
+  validazione mount TLS (`jq: true`), build/avvio, health, HTTPS e Playwright
+  realtime (`2 passed`); una prima attesa `✓ Ready` è scaduta mentre il log
+  frontend mostrava già la readiness, poi il controllo diretto ha restituito
+  `docker compose exit=0; grep exit=0`. Il cleanup `down -v` ha rimosso tutti
+  i container, volumi e la rete del progetto manuale.
+- Lo stress test senza modifiche al repository ha passato `CI=true` al frontend
+  tramite override temporaneo e ha applicato limiti risorse (frontend 2 CPU/2
+  GB, servizi dipendenti limitati). Dopo una ricreazione il frontend ha raggiunto
+  `✓ Ready` in 7 s; tre run E2E consecutivi senza cleanup hanno restituito
+  `2 passed` con `failures=0/3`. Non sono comparsi crash Turbopack. Il run
+  monitorato ha superato Playwright (`2 passed`), il frontend è rimasto circa
+  a 1,06 GiB su 2 GiB e tutti i container hanno riportato `oom=false` e
+  `restarts=0`; HTTPS ha risposto in 24,3 s, lasciando aperto solo l’indizio
+  di variabilità temporale. I log hanno mostrato la prima richiesta in 21,2 s
+  (Next 18,7 s, application-code 2,5 s) e la seconda in 289 ms (Next 17 ms),
+  confermando una compilazione a freddo lenta ma riuscita, non un ritardo
+  DNS/TLS o un crash.
+- Il marker diagnostico in `next.config.ts` è pronto per il prossimo run remoto;
+  lint e typecheck locali non sono partiti perché pnpm ha fallito prima con
+  `ERR_SQLITE_ERROR: unable to open database file` nella cache locale.
 
 ## Problemi residui
 
 - Il bloccante del filtro `jq`, la regressione dei tag mobili delle action e la
   race Composer del bootstrap Compose sono stati corretti e verificati; non
   restano problemi statici o runtime locali di questo scope.
-- Il primo run reale GitHub Actions ha rilevato il difetto Turbopack; il task
-  rimane attivo finche' il rerun sul commit corretto non conferma lo scenario e
-  il cleanup dopo eventuali failure.
+- Due run reali GitHub Actions hanno rilevato il difetto Turbopack; il task
+  rimane attivo finche' un rerun conferma lo scenario e il cleanup dopo
+  eventuali failure.
 - La verifica residua richiede pubblicare la correzione e controllare nel nuovo
   runner effimero log Horizon/Reverb, report E2E e cleanup `down -v`.
 

@@ -162,8 +162,8 @@
   residui o duplicati, attende health/`✓ Ready`/HTTPS e poi esegue Chromium con
   `ignoreHTTPSErrors` soltanto tramite variabile esplicita. Il primo run reale
   GitHub Actions ha rilevato un crash Turbopack del frontend dopo la richiesta
-  di readiness HTTPS; la correzione locale attende il rerun remoto, quindi il
-  task resta attivo.
+  di readiness HTTPS in due run consecutivi; il task resta attivo in attesa di
+  una diagnosi riproducibile sul runner.
 
 ## Test esistenti
 
@@ -201,12 +201,31 @@
   completo locale, HTTPS `200`, Playwright realtime (`2 passed`), `pnpm test`
   (15 file, 86 test), test backend (41 test), Pint (62 file), PHPStan, lint,
   typecheck, parsing YAML e `git diff --check` sono riusciti. Il primo run
-  GitHub Actions `35099896680` ha eseguito la richiesta di readiness HTTPS con
-  esito `200`, poi Next deduceva `/app/app` come root Turbopack e terminava;
-  Nginx restituiva quindi `502` alle navigazioni Playwright. La correzione
-  imposta `turbopack.root` sul progetto `/app`; con lo stesso override CI,
-  smoke mirato, due E2E, lint, typecheck e build sono riusciti e il frontend e'
-  rimasto Up. Il rerun GitHub resta necessario prima del completamento.
+  GitHub Actions `35099896680` e `35103530177` hanno eseguito la richiesta di
+  readiness HTTPS con esito `200`, poi Next terminava durante la compilazione
+  Turbopack con l'errore `/app/app` e `next/package.json`; Nginx restituiva
+  quindi `502` alle navigazioni Playwright. La root Turbopack esplicita non ha
+  cambiato il secondo run. Non viene introdotto un compilatore alternativo nella
+  CI; il rerun GitHub resta necessario prima del completamento. La riproduzione
+  manuale successiva ha superato mount TLS (`jq: true`), build/avvio, health,
+  HTTPS e Playwright realtime (`2 passed`); una prima attesa `✓ Ready` è scaduta
+  mentre il log frontend mostrava già la readiness, poi il controllo diretto ha
+  restituito `docker compose exit=0; grep exit=0`. Il cleanup `down -v` ha
+  rimosso tutti i container, volumi e la rete del progetto manuale.
+  Lo stress test successivo ha passato `CI=true` nel frontend e limiti
+  temporanei (frontend 2 CPU/2 GB, servizi dipendenti limitati), ha raggiunto
+  `✓ Ready` in 7 s dopo la ricreazione del frontend e ha superato tre run E2E
+  consecutivi (`2 passed`, `failures=0/3`) senza cleanup intermedio. Il run
+  monitorato ha superato Playwright (`2 passed`), ha osservato il frontend a
+  circa 1,06 GiB su 2 GiB e nessun container in OOM o riavvio; HTTPS ha
+  risposto in 24,3 s, quindi la variabilità di readiness resta un indizio di
+  timing ma non una prova di esaurimento risorse. I log hanno separato la
+  prima richiesta (`GET / 200 in 21,2 s`: Next 18,7 s, application-code 2,5 s)
+  dalla seconda (`289 ms`: Next 17 ms), confermando una compilazione a freddo
+  lenta ma riuscita, non un ritardo DNS/TLS o un crash.
+  È stato aggiunto temporaneamente un marker in `frontend/next.config.ts` per
+  registrare `cwd`, `import.meta.dirname` e gli argomenti del processo nel
+  prossimo run GitHub; il valore remoto resta da osservare.
 
 - M5-004, 2026-09-07: `docker compose config --quiet`, build e avvio di
   PostgreSQL, Redis, backend, Reverb e Horizon riusciti. PostgreSQL e Redis
