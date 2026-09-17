@@ -2,11 +2,15 @@
 
 - **Milestone corrente:** Milestone 6 — Test end-to-end e CI (avviata 2026-09-14).
 - **Ultimo task completato:** M6-003 — Aggiungere CI per la qualita' applicativa.
-- **Task attivo:** M6-004 — Eseguire realtime Compose in CI.
-- **Task bloccato:** nessuno.
-- **Prossimo task suggerito:** completare M6-004 — Eseguire realtime Compose
-  in CI.
-- **Ultimo aggiornamento:** 2026-09-16.
+- **Task attivo:** M6-005 — Stabilizzare realtime Compose CI con Webpack.
+- **Task bloccato:** M6-004 — Eseguire realtime Compose in CI, bloccato da
+  M6-005.
+- **Compilatore frontend:** locale: Turbopack; job GitHub Actions Realtime
+  Compose E2E: Webpack. L'override CI usa ora Webpack; il profilo locale resta
+  invariato con Turbopack.
+- **Prossimo task suggerito:** verificare i due run GitHub Actions richiesti da
+  M6-005 sullo stesso commit.
+- **Ultimo aggiornamento:** 2026-09-17.
 
 ## Funzionalita' esistenti
 
@@ -160,10 +164,15 @@
   condiviso; directory runtime e migration restano gestite dall'entrypoint.
   Prima dell'avvio verifica la configurazione risolta, senza mount mkcert
   residui o duplicati, attende health/`✓ Ready`/HTTPS e poi esegue Chromium con
-  `ignoreHTTPSErrors` soltanto tramite variabile esplicita. Il primo run reale
-  GitHub Actions ha rilevato un crash Turbopack del frontend dopo la richiesta
-  di readiness HTTPS in due run consecutivi; il task resta attivo in attesa di
-  una diagnosi riproducibile sul runner.
+  `ignoreHTTPSErrors` soltanto tramite variabile esplicita. I run reali GitHub
+  Actions hanno rilevato un crash Turbopack del frontend dopo la richiesta di
+  readiness HTTPS; la causa interna di `/app/app` non e' stata identificata e
+  il task e' ora bloccato da M6-005.
+- M6-005 implementa Webpack soltanto nell'override CI del frontend e rimuove il
+  tracing Turbopack dall'ambiente CI; il Compose locale conserva il comando
+  Turbopack. Il workflow verifica tutti i container e gli healthcheck subito
+  prima di Playwright. La verifica remota richiede ancora un run automatico e
+  un `Re-run all jobs` verdi sullo stesso commit.
 
 ## Test esistenti
 
@@ -205,13 +214,15 @@
   readiness HTTPS con esito `200`, poi Next terminava durante la compilazione
   Turbopack con l'errore `/app/app` e `next/package.json`; Nginx restituiva
   quindi `502` alle navigazioni Playwright. La root Turbopack esplicita non ha
-  cambiato il secondo run. Non viene introdotto un compilatore alternativo nella
-  CI; il rerun GitHub resta necessario prima del completamento. La riproduzione
-  manuale successiva ha superato mount TLS (`jq: true`), build/avvio, health,
-  HTTPS e Playwright realtime (`2 passed`); una prima attesa `✓ Ready` è scaduta
-  mentre il log frontend mostrava già la readiness, poi il controllo diretto ha
-  restituito `docker compose exit=0; grep exit=0`. Il cleanup `down -v` ha
-  rimosso tutti i container, volumi e la rete del progetto manuale.
+  cambiato il secondo run. In quei run non era ancora presente un compilatore
+  alternativo; M6-005 ha poi scelto Webpack esclusivamente per la CI, lasciando
+  Turbopack in locale. Il rerun GitHub resta necessario prima del completamento.
+  La riproduzione manuale successiva ha superato mount TLS (`jq: true`),
+  build/avvio, health, HTTPS e Playwright realtime (`2 passed`); una prima
+  attesa `✓ Ready` è scaduta mentre il log frontend mostrava già la readiness,
+  poi il controllo diretto ha restituito
+  `docker compose exit=0; grep exit=0`. Il cleanup `down -v` ha rimosso tutti i
+  container, volumi e la rete del progetto manuale.
   Lo stress test successivo ha passato `CI=true` nel frontend e limiti
   temporanei (frontend 2 CPU/2 GB, servizi dipendenti limitati), ha raggiunto
   `✓ Ready` in 7 s dopo la ricreazione del frontend e ha superato tre run E2E
@@ -226,8 +237,17 @@
 È stato aggiunto temporaneamente un marker in `frontend/next.config.ts`; il run
 GitHub `35204557100` ha registrato `cwd` e `import.meta.dirname` uguali a
 `/app`, mentre Turbopack ha comunque cercato `next/package.json` in `/app/app`.
-Il prossimo run abilita `NEXT_TURBOPACK_TRACING=1` solo nell'override CI e copia
-`.next/dev/trace-turbopack` nell'artefatto diagnostico prima del cleanup.
+Il run `35206662901` ha raccolto `.next/dev/trace-turbopack`: la trace mostra
+attivita' e risoluzioni sotto `/app`, ma non contiene un evento filtrabile con
+`/app/app`; la causa interna resta non identificata.
+
+- M6-005, 2026-09-17: l'override Compose CI risolve `pnpm exec next dev
+  --webpack` e non imposta `NEXT_TURBOPACK_TRACING`; il Compose locale conserva
+  il `CMD` `pnpm dev` dell'immagine. La configurazione con environment CI
+  verifica i tre mount TLS singoli e senza source `.cert/`; il workflow YAML e'
+  valido e il controllo pre-Playwright richiede i sette servizi `running` e gli
+  healthcheck `healthy`. Nessun run GitHub Actions e' ancora stato eseguito per
+  questa modifica.
 
 - M5-004, 2026-09-07: `docker compose config --quiet`, build e avvio di
   PostgreSQL, Redis, backend, Reverb e Horizon riusciti. PostgreSQL e Redis

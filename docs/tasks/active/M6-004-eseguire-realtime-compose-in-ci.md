@@ -1,10 +1,11 @@
 # M6-004 — Eseguire realtime Compose in CI
 
-- **Stato:** attivo
+- **Stato:** bloccato
 - **Milestone:** Milestone 6 — Test end-to-end e CI
 - **Data di apertura:** 2026-09-15
 - **Data di chiusura:**
 - **Dipendenze:** M6-001, M6-002, M6-003
+- **Bloccato da:** M6-005
 
 ## Contesto
 
@@ -209,9 +210,9 @@ Docker Compose e gli strumenti di generazione OpenSSL disponibili.
   la compilazione Turbopack: il log segnala `/app/app` e `next/package.json`.
   Il marker del run `35204557100` mostra `cwd` e `import.meta.dirname` uguali
   a `/app`, ma l'errore `/app/app` resta; non viene introdotto un compilatore
-  alternativo. Il tracing `NEXT_TURBOPACK_TRACING=1` viene ora raccolto dal
-  container frontend nell'artefatto di failure per osservare il passaggio
-  interno che ricalcola la root.
+  alternativo. Il tracing `NEXT_TURBOPACK_TRACING=1` e' stato raccolto dal
+  container frontend nell'artefatto di failure prima del workaround; non e'
+  piu' impostato nel profilo CI Webpack.
 - La riproduzione manuale senza workaround alternativo ha superato la
   validazione mount TLS (`jq: true`), build/avvio, health, HTTPS e Playwright
   realtime (`2 passed`); una prima attesa `✓ Ready` è scaduta mentre il log
@@ -230,25 +231,30 @@ Docker Compose e gli strumenti di generazione OpenSSL disponibili.
   (Next 18,7 s, application-code 2,5 s) e la seconda in 289 ms (Next 17 ms),
   confermando una compilazione a freddo lenta ma riuscita, non un ritardo
   DNS/TLS o un crash.
-- Il marker diagnostico in `next.config.ts` ha confermato `/app` nel run remoto;
-  il tracing Turbopack è pronto per il prossimo run e lint/typecheck locali non
-  sono partiti perché pnpm ha fallito prima con
-  `ERR_SQLITE_ERROR: unable to open database file` nella cache locale.
+- Il marker diagnostico in `next.config.ts` ha confermato `/app` nel run remoto.
+  Il run `35206662901` ha poi raccolto la trace Turbopack: mostra attivita' e
+  risoluzioni sotto `/app`, ma non contiene un evento filtrabile con `/app/app`.
+  La causa interna resta quindi non identificata.
+- M6-005 ha implementato nell'override CI il comando frontend Webpack e ha
+  aggiunto la verifica di stato/health subito prima di Playwright; il profilo
+  locale resta invariato. I due run GitHub richiesti per riattivare questo task
+  non sono ancora disponibili.
 
 ## Problemi residui
 
 - Il bloccante del filtro `jq`, la regressione dei tag mobili delle action e la
   race Composer del bootstrap Compose sono stati corretti e verificati; non
   restano problemi statici o runtime locali di questo scope.
-- Due run reali GitHub Actions hanno rilevato il difetto Turbopack; il task
-  rimane attivo finche' un rerun conferma lo scenario e il cleanup dopo
-  eventuali failure.
+- I run reali GitHub Actions precedenti hanno rilevato il difetto Turbopack;
+  M6-005 ha applicato il workaround Webpack limitato alla CI, ma deve ancora
+  verificarlo con i due run richiesti prima che questo task possa riprendere ed
+  essere chiuso.
 - La verifica residua richiede pubblicare la correzione e controllare nel nuovo
   runner effimero log Horizon/Reverb, report E2E e cleanup `down -v`.
 
 ## Riepilogo finale
 
 L'implementazione del job CI e dei relativi override/configurazione e' stata
-completata e verificata staticamente. M6-004 non viene spostato in `completed`
-finche' il run reale GitHub Actions non conferma lo scenario HTTPS/WSS a due
-context e il cleanup del runner.
+completata e verificata staticamente. M6-004 e' bloccato da M6-005 e non viene
+spostato in `completed` finche' due run reali GitHub Actions sullo stesso commit
+non confermano lo scenario HTTPS/WSS a due context e il cleanup del runner.

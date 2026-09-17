@@ -9,11 +9,22 @@ services:
 
   frontend:
     # I controlli CI non chiamano servizi HTTPS: il certificato locale non deve essere richiesto.
+    # Webpack evita il crash Turbopack osservato solo nel runner GitHub, senza cambiare lo sviluppo locale.
+    command:
+      [
+        "pnpm",
+        "exec",
+        "next",
+        "dev",
+        "--webpack",
+        "--hostname",
+        "0.0.0.0",
+        "--port",
+        "3000",
+      ]
     environment:
       # Il path interno resta stabile, mentre il job sostituisce il source locale con la CA effimera.
       NODE_EXTRA_CA_CERTS: ${CI_NODE_EXTRA_CA_CERTS:-}
-      # Il tracing resta limitato alla CI per diagnosticare il crash Turbopack remoto.
-      NEXT_TURBOPACK_TRACING: "1"
     volumes: !override
       - ./frontend:/app
       - frontend-node-modules:/app/node_modules

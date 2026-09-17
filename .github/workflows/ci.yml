@@ -215,6 +215,34 @@ jobs:
         working-directory: frontend
         run: pnpm exec playwright install --with-deps chromium
 
+      - name: Verify Compose services before Playwright
+        run: |
+          set -euo pipefail
+
+          # Il browser deve partire solo mentre l'intero percorso realtime e' ancora disponibile.
+          required_services=(postgres redis backend reverb horizon frontend nginx)
+          for service in "${required_services[@]}"; do
+            container_id="$(docker compose --env-file "$COMPOSE_ENV_FILE" ps -q "$service")"
+            if [[ -z "$container_id" ]]; then
+              echo "Container assente per $service"
+              exit 1
+            fi
+
+            status="$(docker inspect -f '{{.State.Status}}' "$container_id")"
+            if [[ "$status" != "running" ]]; then
+              echo "$service non e' running: $status"
+              exit 1
+            fi
+
+            health="$(docker inspect -f '{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}' "$container_id")"
+            if [[ "$health" != "healthy" && "$health" != "none" ]]; then
+              echo "$service non e' healthy: $health"
+              exit 1
+            fi
+          done
+
+          docker compose --env-file "$COMPOSE_ENV_FILE" ps
+
       - name: Run realtime Playwright E2E
         working-directory: frontend
         env:
