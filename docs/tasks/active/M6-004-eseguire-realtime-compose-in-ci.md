@@ -166,8 +166,9 @@ Docker Compose e gli strumenti di generazione OpenSSL disponibili.
 ## File modificati
 
 - `.github/workflows/ci.yml`: job E2E Compose, TLS effimero, readiness,
-  diagnostica e cleanup.
-- `compose.ci.yaml`: sostituzione dei mount TLS locali e path CA interno a Node.
+  diagnostica Turbopack e cleanup.
+- `compose.ci.yaml`: sostituzione dei mount TLS locali, path CA interno a Node
+  e tracing Turbopack limitato alla CI.
 - `frontend/playwright.config.ts`: bypass TLS esplicito solo per CI e trace
   disattivate nel runner.
 - `frontend/next.config.ts`: marker diagnostico temporaneo per confrontare la
@@ -206,9 +207,11 @@ Docker Compose e gli strumenti di generazione OpenSSL disponibili.
 - I run remoti `35099896680` e `35103530177` hanno raggiunto `✓ Ready` e la
   richiesta di readiness HTTPS `200`, ma il frontend ha poi terminato durante
   la compilazione Turbopack: il log segnala `/app/app` e `next/package.json`.
-  La root esplicita in `next.config.ts` non ha cambiato il secondo run e viene
-  rimossa. Non viene introdotto un compilatore alternativo: il rerun GitHub
-  resta necessario per una diagnosi riproducibile sul runner.
+  Il marker del run `35204557100` mostra `cwd` e `import.meta.dirname` uguali
+  a `/app`, ma l'errore `/app/app` resta; non viene introdotto un compilatore
+  alternativo. Il tracing `NEXT_TURBOPACK_TRACING=1` viene ora raccolto dal
+  container frontend nell'artefatto di failure per osservare il passaggio
+  interno che ricalcola la root.
 - La riproduzione manuale senza workaround alternativo ha superato la
   validazione mount TLS (`jq: true`), build/avvio, health, HTTPS e Playwright
   realtime (`2 passed`); una prima attesa `✓ Ready` è scaduta mentre il log
@@ -227,8 +230,9 @@ Docker Compose e gli strumenti di generazione OpenSSL disponibili.
   (Next 18,7 s, application-code 2,5 s) e la seconda in 289 ms (Next 17 ms),
   confermando una compilazione a freddo lenta ma riuscita, non un ritardo
   DNS/TLS o un crash.
-- Il marker diagnostico in `next.config.ts` è pronto per il prossimo run remoto;
-  lint e typecheck locali non sono partiti perché pnpm ha fallito prima con
+- Il marker diagnostico in `next.config.ts` ha confermato `/app` nel run remoto;
+  il tracing Turbopack è pronto per il prossimo run e lint/typecheck locali non
+  sono partiti perché pnpm ha fallito prima con
   `ERR_SQLITE_ERROR: unable to open database file` nella cache locale.
 
 ## Problemi residui

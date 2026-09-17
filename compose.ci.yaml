@@ -12,6 +12,8 @@ services:
     environment:
       # Il path interno resta stabile, mentre il job sostituisce il source locale con la CA effimera.
       NODE_EXTRA_CA_CERTS: ${CI_NODE_EXTRA_CA_CERTS:-}
+      # Il tracing resta limitato alla CI per diagnosticare il crash Turbopack remoto.
+      NEXT_TURBOPACK_TRACING: "1"
     volumes: !override
       - ./frontend:/app
       - frontend-node-modules:/app/node_modules

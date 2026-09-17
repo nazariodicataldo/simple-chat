@@ -223,9 +223,11 @@
   prima richiesta (`GET / 200 in 21,2 s`: Next 18,7 s, application-code 2,5 s)
   dalla seconda (`289 ms`: Next 17 ms), confermando una compilazione a freddo
   lenta ma riuscita, non un ritardo DNS/TLS o un crash.
-  È stato aggiunto temporaneamente un marker in `frontend/next.config.ts` per
-  registrare `cwd`, `import.meta.dirname` e gli argomenti del processo nel
-  prossimo run GitHub; il valore remoto resta da osservare.
+È stato aggiunto temporaneamente un marker in `frontend/next.config.ts`; il run
+GitHub `35204557100` ha registrato `cwd` e `import.meta.dirname` uguali a
+`/app`, mentre Turbopack ha comunque cercato `next/package.json` in `/app/app`.
+Il prossimo run abilita `NEXT_TURBOPACK_TRACING=1` solo nell'override CI e copia
+`.next/dev/trace-turbopack` nell'artefatto diagnostico prima del cleanup.
 
 - M5-004, 2026-09-07: `docker compose config --quiet`, build e avvio di
   PostgreSQL, Redis, backend, Reverb e Horizon riusciti. PostgreSQL e Redis

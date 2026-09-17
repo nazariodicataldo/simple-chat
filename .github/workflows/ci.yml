@@ -223,7 +223,13 @@ jobs:
 
       - name: Collect Compose logs after failure
         if: ${{ failure() }}
-        run: docker compose --env-file "$COMPOSE_ENV_FILE" logs --no-color > "$RUNNER_TEMP/compose.log"
+        run: |
+          set -euo pipefail
+          docker compose --env-file "$COMPOSE_ENV_FILE" logs --no-color > "$RUNNER_TEMP/compose.log"
+          frontend_container="$(docker compose --env-file "$COMPOSE_ENV_FILE" ps -aq frontend)"
+          if [ -n "$frontend_container" ]; then
+            docker cp "$frontend_container:/app/.next/dev/trace-turbopack" "$RUNNER_TEMP/trace-turbopack" || true
+          fi
 
       - name: Upload E2E diagnostics after failure
         if: ${{ failure() }}
@@ -233,6 +239,7 @@ jobs:
           if-no-files-found: ignore
           path: |
             ${{ runner.temp }}/compose.log
+            ${{ runner.temp }}/trace-turbopack
             frontend/playwright-report
 
       - name: Tear down CI Compose stack
