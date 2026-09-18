@@ -30,6 +30,22 @@ ma il path e' normale per pnpm e non esiste evidenza che Turbopack lo usi o lo
 normalizzi in modo errato. Va conservato come pista per un'eventuale indagine
 futura, non come causa dimostrata.
 
+Il primo run remoto con Webpack, `35255596983` sul commit
+`b7c215abbc94da418a8065275daebedbc6b8333e`, ha superato readiness frontend,
+HTTPS pubblico e controllo pre-Playwright dei sette servizi. Lo smoke pubblico
+e' riuscito, mentre lo scenario realtime ha fallito durante la prima
+registrazione: tutti e tre i tentativi hanno ricevuto `422` da
+`POST /api/register` e l'error context mostra il messaggio sulla presenza di
+almeno una lettera maiuscola e una minuscola nella password.
+
+Il locator `Group chat` e' corretto: il test resta sul form perche' usa
+`playwright-e2e-password`, interamente minuscola. Nel checkout CI non esiste
+`backend/.env` e Compose non imposta `APP_ENV`, quindi Laravel usa il fallback
+`production` e applica `Password::defaults()` con `mixedCase()` e
+`uncompromised()`. In locale `APP_ENV=local` richiede soltanto la lunghezza
+minima. Il nuovo fallimento e' quindi una differenza di environment Laravel,
+non una regressione Webpack o un timeout del titolo.
+
 M6-004 rimane bloccato finche' questo task non dimostra un percorso CI stabile.
 
 ## Obiettivo
@@ -73,6 +89,12 @@ profilo locale.
 
 - Il frontend usa `next dev --webpack` soltanto tramite `compose.ci.yaml`; il
   Compose locale continua a usare il comando Turbopack esistente.
+- I servizi Laravel CI impostano esplicitamente `APP_ENV=local`, coerente con
+  il Compose di sviluppo verificato da M6-002. Il test E2E non deve dipendere
+  dal controllo HTTP esterno attivato da `uncompromised()` in produzione.
+- Il job backend mantiene `APP_ENV=testing` per il comando PHPUnit, così il
+  profilo `local` dell'override E2E non abilita accidentalmente la verifica
+  CSRF durante i test HTTP.
 - `NEXT_TURBOPACK_TRACING=1` viene rimosso dall'override CI insieme al passaggio
   a Webpack. Gli altri strumenti diagnostici e gli artifact di failure restano
   disponibili.
@@ -99,6 +121,12 @@ Webpack soltanto per il frontend CI e che il Compose locale resti invariato.
 Pubblicare poi il solo cambio di compilatore e osservare il run automatico
 completo, conservando log Compose e report Playwright in caso di failure.
 
+Dopo il `422` del run `35255596983`, impostare `APP_ENV=local` nei servizi
+Laravel del solo override CI e verificare nella configurazione risolta che il
+valore raggiunga backend, Reverb e Horizon. Il test Playwright conserva la
+password e il flusso UI esistenti: la modifica deve eliminare la differenza
+accidentale rispetto al Compose locale, non adattare il locator al sintomo.
+
 Se il frontend resta vivo ma emerge un nuovo problema Reverb, non attribuire il
 fallimento a Webpack: raccogliere il log completo e intervenire in un commit
 separato. Quando il commit finale supera il workflow automatico, eseguire
@@ -110,6 +138,8 @@ separato. Quando il commit finale supera il workflow automatico, eseguire
 - Validazione di `compose.yaml:compose.ci.yaml` con l'environment CI
 - Controllo del comando frontend nella configurazione Compose locale e in
   quella CI risolta
+- Controllo di `APP_ENV=local` per backend, Reverb e Horizon nella
+  configurazione CI risolta
 - Build e avvio del Compose completo nel job GitHub, senza `--no-deps`
 - Verifica di stato/health di tutti i servizi subito prima di Playwright
 - `pnpm e2e` nel job `Realtime Compose E2E`
@@ -128,6 +158,10 @@ separato. Quando il commit finale supera il workflow automatico, eseguire
   generica disponibile in caso di failure.
 - [x] Subito prima di Playwright, tutti i servizi richiesti risultano ancora in
   esecuzione e quelli dotati di healthcheck risultano sani.
+- [x] Backend, Reverb e Horizon ricevono esplicitamente `APP_ENV=local` dal
+  solo override CI; il profilo locale e le regole applicative non cambiano.
+- [ ] La registrazione UI dei due utenti non riceve piu' il `422` dovuto alla
+  regola password di produzione implicita.
 - [ ] Il run automatico completa lo scenario M6-002 con due context Chromium,
   HTTPS/WSS reali e pipeline Redis/Horizon/Reverb/Echo.
 - [ ] `Re-run all jobs` sullo stesso commit completa nuovamente lo scenario.
@@ -142,11 +176,13 @@ Il successo con Webpack dimostra la stabilita' del percorso CI scelto, non la
 causa del crash Turbopack. I run locali verdi non sostituiscono la prova nel
 runner GitHub-hosted.
 
-Un vecchio log remoto mostra inoltre Reverb interrogare la tabella `cache`
-prima del completamento delle migration. Non e' dimostrato che il problema sia
-ancora presente: viene verificato nel nuovo run e corretto soltanto se si
-riproduce. Il warning sul runtime Node delle action e' considerato indipendente
-perche' il frontend gira con Node `24.19.0` dentro il container e
+Il run `35255596983` ha riprodotto una volta l'accesso di Reverb alla tabella
+`cache` prima del completamento delle migration. Reverb si e' poi ripreso ed
+era `healthy` nel controllo pre-Playwright, quindi il log non lo identifica
+come causa del `422` di registrazione. Un'eventuale correzione della race deve
+restare separata dalla modifica `APP_ENV` e basata sui log del prossimo run.
+Il warning sul runtime Node delle action e' considerato indipendente perche' il
+frontend gira con Node `24.19.0` dentro il container e
 `setup-node`/`upload-artifact` intervengono fuori dal processo che termina.
 
 ## Verifica manuale
@@ -169,6 +205,9 @@ perche' il frontend gira con Node `24.19.0` dentro il container e
   piu' un requisito di uscita per M6-004.
 - Due run completi verdi sullo stesso commit sono la soglia minima concordata:
   uno automatico e uno tramite `Re-run all jobs`.
+- Il `422` del run `35255596983` viene corretto rendendo esplicito
+  `APP_ENV=local` nel solo override CI, invece di cambiare il titolo atteso o
+  introdurre nel test la verifica esterna `uncompromised()`.
 - L'implementazione e' stata autorizzata dalla richiesta di lavorare su M6-005;
   la chiusura resta subordinata ai due run remoti verdi.
 
@@ -193,6 +232,11 @@ perche' il frontend gira con Node `24.19.0` dentro il container e
   compose.ci.yaml config --quiet`: superato.
 - Configurazione CI risolta: comando Webpack, tracing assente, sette servizi e
   mount TLS CI singoli senza source `.cert/`: superata.
+- Configurazione CI risolta: `APP_ENV=local` raggiunge backend, Reverb e
+  Horizon; il Compose locale non sovrascrive `APP_ENV`: superata.
+- Il primo comando backend con `APP_ENV=local` ha riprodotto due `419` nei test
+  stateful; lo stesso comando con `-e APP_ENV=testing`, ora presente nel
+  workflow, ha superato 41 test e 213 assertion.
 - Configurazione locale risolta: nessun `command` frontend nell'override e
   `docker/frontend/Dockerfile` conserva `CMD pnpm dev`: superata.
 - Parser YAML del workflow: superato con PyYAML; `actionlint` non e'
@@ -201,20 +245,30 @@ perche' il frontend gira con Node `24.19.0` dentro il container e
   superati.
 - Prettier sui file Compose e workflow: superato.
 - `git diff --check`: superato dopo l'implementazione.
-- Run automatico GitHub Actions e `Re-run all jobs`: non eseguiti; il client
-  `gh` locale ha una sessione autenticata con token non valido.
+- Run automatico GitHub Actions `35255596983` sul commit
+  `b7c215abbc94da418a8065275daebedbc6b8333e`: Webpack ha raggiunto `✓ Ready`,
+  HTTPS e controllo pre-Playwright sono riusciti e lo smoke pubblico e'
+  passato. Lo scenario realtime ha fallito in tutti e tre i tentativi sulla
+  prima registrazione: `POST /api/register` ha restituito `422` e l'error
+  context mostra la regola mixed-case non soddisfatta dalla password E2E.
+- Lo stesso run ha raccolto log Compose e report Playwright, quindi ha
+  dimostrato che il locator `Group chat` non e' la causa: il form di
+  registrazione e il relativo alert erano ancora visibili.
+- `Re-run all jobs`: non eseguito, perche' il run automatico non e' verde.
 
 ## Problemi residui
 
-- Il workaround Webpack e' implementato e verificato staticamente/localmente,
-  ma non e' ancora verificato su GitHub.
+- Il workaround Webpack e' verificato sul runner GitHub fino all'avvio stabile
+  del frontend e allo smoke HTTPS; la correzione `APP_ENV=local` deve ancora
+  essere verificata nel nuovo percorso autenticato.
 - M6-004 resta bloccato e non puo' essere dichiarato completo.
-- La race Reverb/migration e' solo un rischio storico finche' un nuovo run non
-  la riproduce.
+- La race Reverb/migration e' ricomparsa nel log, ma Reverb si e' ripreso ed
+  era healthy prima di Playwright; non e' il bloccante dimostrato del run.
 
 ## Riepilogo finale
 
-Il workaround Webpack limitato alla CI e il controllo pre-Playwright sono stati
-implementati senza modificare il profilo locale o il codice applicativo. Il
-task resta attivo finche' un run automatico e il successivo `Re-run all jobs`
-non completano verdi sullo stesso commit.
+Il workaround Webpack limitato alla CI, il controllo pre-Playwright e
+`APP_ENV=local` per i servizi Laravel CI sono stati implementati senza
+modificare il profilo locale o il codice applicativo. Il nuovo run deve ancora
+verificare la registrazione e, successivamente, il `Re-run all jobs` sullo
+stesso commit.

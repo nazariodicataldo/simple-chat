@@ -31,7 +31,8 @@ jobs:
         run: docker compose --env-file "$COMPOSE_ENV_FILE" run --rm --no-deps --entrypoint composer backend install --no-interaction --prefer-dist
 
       - name: Backend tests
-        run: docker compose --env-file "$COMPOSE_ENV_FILE" run --rm --no-deps backend composer test
+        # Il job E2E usa APP_ENV=local, ma PHPUnit deve avviarsi in ambiente testing.
+        run: docker compose --env-file "$COMPOSE_ENV_FILE" run --rm --no-deps -e APP_ENV=testing backend composer test
 
       - name: Backend style check
         run: docker compose --env-file "$COMPOSE_ENV_FILE" run --rm --no-deps backend ./vendor/bin/pint --test

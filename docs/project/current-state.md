@@ -171,8 +171,11 @@
 - M6-005 implementa Webpack soltanto nell'override CI del frontend e rimuove il
   tracing Turbopack dall'ambiente CI; il Compose locale conserva il comando
   Turbopack. Il workflow verifica tutti i container e gli healthcheck subito
-  prima di Playwright. La verifica remota richiede ancora un run automatico e
-  un `Re-run all jobs` verdi sullo stesso commit.
+  prima di Playwright. Dopo il `422` del run `35255596983`, l'override CI
+  imposta anche `APP_ENV=local` per backend, Reverb e Horizon; il job PHPUnit
+  lo sovrascrive esplicitamente con `APP_ENV=testing`. La verifica remota
+  richiede ancora un run automatico e un `Re-run all jobs` verdi sullo stesso
+  commit.
 
 ## Test esistenti
 
@@ -244,10 +247,14 @@ attivita' e risoluzioni sotto `/app`, ma non contiene un evento filtrabile con
 - M6-005, 2026-09-17: l'override Compose CI risolve `pnpm exec next dev
   --webpack` e non imposta `NEXT_TURBOPACK_TRACING`; il Compose locale conserva
   il `CMD` `pnpm dev` dell'immagine. La configurazione con environment CI
-  verifica i tre mount TLS singoli e senza source `.cert/`; il workflow YAML e'
-  valido e il controllo pre-Playwright richiede i sette servizi `running` e gli
-  healthcheck `healthy`. Nessun run GitHub Actions e' ancora stato eseguito per
-  questa modifica.
+  verifica i tre mount TLS singoli senza source `.cert/` e ora consegna
+  `APP_ENV=local` a backend, Reverb e Horizon; il profilo locale resta
+  invariato. Il job backend passa `APP_ENV=testing` soltanto a PHPUnit dopo
+  aver riprodotto due `419` con il valore `local`; il test completo locale ora
+  supera 41 test e 213 assertion. Il workflow YAML e' valido e il controllo
+  pre-Playwright richiede i sette servizi `running` e gli healthcheck
+  `healthy`. Il nuovo run GitHub deve ancora verificare che la registrazione
+  non restituisca `422`.
 
 - M5-004, 2026-09-07: `docker compose config --quiet`, build e avvio di
   PostgreSQL, Redis, backend, Reverb e Horizon riusciti. PostgreSQL e Redis

@@ -1,6 +1,8 @@
 services:
   backend:
     environment:
+      # La CI deve usare le stesse regole applicative del profilo Compose locale.
+      APP_ENV: local
       # I test di autenticazione cifrano i cookie.
       # La chiave fittizia serve solo alla CI e non e' un segreto.
       APP_KEY: base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
@@ -34,11 +36,18 @@ services:
 
   reverb:
     environment:
+      # Reverb condivide il profilo Laravel locale per mantenere coerente il bootstrap CI.
+      APP_ENV: local
+      APP_KEY: base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+
       # Il job prepara il volume vendor prima dell'avvio concorrente dei servizi.
       SKIP_COMPOSER_INSTALL: "true"
 
   horizon:
     environment:
+      # Horizon condivide il profilo Laravel locale per mantenere coerente il bootstrap CI.
+      APP_ENV: local
+      APP_KEY: base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
       # Il job prepara il volume vendor prima dell'avvio concorrente dei servizi.
       SKIP_COMPOSER_INSTALL: "true"
 
