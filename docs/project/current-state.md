@@ -173,9 +173,11 @@
   Turbopack. Il workflow verifica tutti i container e gli healthcheck subito
   prima di Playwright. Dopo il `422` del run `35255596983`, l'override CI
   imposta anche `APP_ENV=local` per backend, Reverb e Horizon; il job PHPUnit
-  lo sovrascrive esplicitamente con `APP_ENV=testing`. La verifica remota
-  richiede ancora un run automatico e un `Re-run all jobs` verdi sullo stesso
-  commit.
+  lo sovrascrive esplicitamente con `APP_ENV=testing`, broadcast nullo e coda
+  sincrona. Dopo il payload nullo del run `35329235001`, backend e Horizon
+  ricevono inoltre `BROADCAST_CONNECTION=reverb` e `QUEUE_CONNECTION=redis`
+  soltanto nell'override CI. La verifica remota richiede ancora un run
+  automatico e un `Re-run all jobs` verdi sullo stesso commit.
 
 ## Test esistenti
 
@@ -251,10 +253,15 @@ attivita' e risoluzioni sotto `/app`, ma non contiene un evento filtrabile con
   `APP_ENV=local` a backend, Reverb e Horizon; il profilo locale resta
   invariato. Il job backend passa `APP_ENV=testing` soltanto a PHPUnit dopo
   aver riprodotto due `419` con il valore `local`; il test completo locale ora
-  supera 41 test e 213 assertion. Il workflow YAML e' valido e il controllo
-  pre-Playwright richiede i sette servizi `running` e gli healthcheck
-  `healthy`. Il nuovo run GitHub deve ancora verificare che la registrazione
-  non restituisca `422`.
+  supera 41 test e 213 assertion. L'override aggiunge inoltre
+  `BROADCAST_CONNECTION=reverb` e `QUEUE_CONNECTION=redis` a backend e
+  Horizon; il job PHPUnit forza `null` e `sync` per non dipendere da Redis
+  quando viene eseguito con `--no-deps`. Il workflow YAML e' valido e il
+  controllo pre-Playwright richiede i sette servizi `running` e gli healthcheck
+  `healthy`. Dopo la ricreazione locale dei soli servizi backend, Reverb e
+  Horizon con le nuove variabili, Playwright reale HTTPS/WSS ha superato 2 test
+  in 18,2 s; il nuovo run GitHub deve ancora verificare subscription e
+  mutazioni realtime.
 
 - M5-004, 2026-09-07: `docker compose config --quiet`, build e avvio di
   PostgreSQL, Redis, backend, Reverb e Horizon riusciti. PostgreSQL e Redis

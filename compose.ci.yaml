@@ -3,6 +3,9 @@ services:
     environment:
       # La CI deve usare le stesse regole applicative del profilo Compose locale.
       APP_ENV: local
+      # Le API devono firmare i canali e accodare i broadcast come nello stack realtime locale.
+      BROADCAST_CONNECTION: reverb
+      QUEUE_CONNECTION: redis
       # I test di autenticazione cifrano i cookie.
       # La chiave fittizia serve solo alla CI e non e' un segreto.
       APP_KEY: base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
@@ -39,7 +42,6 @@ services:
       # Reverb condivide il profilo Laravel locale per mantenere coerente il bootstrap CI.
       APP_ENV: local
       APP_KEY: base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
-
       # Il job prepara il volume vendor prima dell'avvio concorrente dei servizi.
       SKIP_COMPOSER_INSTALL: "true"
 
@@ -48,6 +50,9 @@ services:
       # Horizon condivide il profilo Laravel locale per mantenere coerente il bootstrap CI.
       APP_ENV: local
       APP_KEY: base64:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=
+      # Horizon deve consumare la stessa coda Redis e il broadcaster Reverb del backend.
+      BROADCAST_CONNECTION: reverb
+      QUEUE_CONNECTION: redis
       # Il job prepara il volume vendor prima dell'avvio concorrente dei servizi.
       SKIP_COMPOSER_INSTALL: "true"
 

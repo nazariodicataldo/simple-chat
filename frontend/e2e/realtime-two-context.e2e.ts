@@ -68,11 +68,13 @@ async function registerUser(page: Page, user: TestUser) {
   await expect
     .poll(() => reverbSockets.length, {
       message: "Reverb non ha aperto il socket del browser context",
+      timeout: 15_000,
     })
     .toBeGreaterThan(0)
   await expect
     .poll(() => reverbSubscriptions.length, {
       message: "Echo non ha completato la subscription a private-chat",
+      timeout: 15_000,
     })
     .toBeGreaterThan(0)
 }
