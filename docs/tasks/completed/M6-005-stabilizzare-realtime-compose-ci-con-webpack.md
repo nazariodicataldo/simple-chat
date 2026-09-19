@@ -1,11 +1,11 @@
 # M6-005 — Stabilizzare realtime Compose CI con Webpack
 
-- **Stato:** attivo
+- **Stato:** completato
 - **Milestone:** Milestone 6 — Test end-to-end e CI
 - **Data di apertura:** 2026-09-17
-- **Data di chiusura:**
+- **Data di chiusura:** 2026-09-18
 - **Dipendenze:** M6-003
-- **Task collegato:** M6-004, bloccato da questo task
+- **Task collegato:** M6-004, completato con la stessa evidenza remota
 
 ## Contesto
 
@@ -68,14 +68,14 @@ non e' arrivato alle mutazioni, quindi questa non e' la causa del fallimento
 osservato, ma deve essere resa esplicita insieme al broadcaster per verificare
 l'intera pipeline richiesta dal task.
 
-M6-004 rimane bloccato finche' questo task non dimostra un percorso CI stabile.
+M6-004 e' stato sbloccato e completato dopo la verifica del percorso CI stabile.
 
 ## Obiettivo
 
 Stabilizzare il job `Realtime Compose E2E` usando Webpack esclusivamente
-nell'override CI e verificarlo con un run automatico e un successivo
-`Re-run all jobs` verdi sullo stesso commit. Turbopack resta il compilatore del
-profilo locale.
+nell'override CI e verificarlo con un run automatico e una successiva
+esecuzione manuale dall'interfaccia GitHub, verdi sullo stesso commit.
+Turbopack resta il compilatore del profilo locale.
 
 ## Fuori scope
 
@@ -139,8 +139,8 @@ profilo locale.
   richiede file fuori dallo scope autorizzato, il task viene aggiornato prima
   dell'implementazione.
 - Il successo remoto richiede due esecuzioni complete verdi sullo stesso
-  commit: il run automatico del push e poi `Re-run all jobs` dall'interfaccia
-  GitHub. Non viene aggiunto `workflow_dispatch`.
+  commit: il run automatico del push e almeno un run manuale tramite il
+  `workflow_dispatch` gia' presente nel workflow.
 - Il workaround e' descritto come scelta pratica CI-only, non come correzione
   della causa Turbopack. Potra' essere rivalutato senza scadenze al prossimo
   aggiornamento di Next.js; non viene aperto ora un task ulteriore.
@@ -168,8 +168,9 @@ del timeout o con la correzione della race di bootstrap Reverb.
 
 Se il frontend resta vivo ma emerge un nuovo problema Reverb, non attribuire il
 fallimento a Webpack: raccogliere il log completo e intervenire in un commit
-separato. Quando il commit finale supera il workflow automatico, eseguire
-`Re-run all jobs` sullo stesso commit e confrontare entrambe le esecuzioni.
+separato. Quando il commit finale supera il workflow automatico, avviare
+manualmente lo stesso workflow sul medesimo commit e confrontare entrambe le
+esecuzioni.
 
 ## Comandi da eseguire
 
@@ -187,7 +188,7 @@ separato. Quando il commit finale supera il workflow automatico, eseguire
 - Raccolta dei log Compose e del report Playwright in caso di failure
 - `docker compose down -v --remove-orphans` nel runner effimero
 - Run automatico GitHub Actions sul commit finale
-- `Re-run all jobs` sul medesimo commit
+- Run manuale del workflow sul medesimo commit
 - `git diff --stat`
 - `git diff --check`
 
@@ -205,14 +206,14 @@ separato. Quando il commit finale supera il workflow automatico, eseguire
   regola password di produzione implicita.
 - [x] Backend e Horizon ricevono `BROADCAST_CONNECTION=reverb` e
   `QUEUE_CONNECTION=redis` dal solo override CI.
-- [ ] `/broadcasting/auth` restituisce la firma del canale privato ed Echo
+- [x] `/broadcasting/auth` restituisce la firma del canale privato ed Echo
   riceve `pusher_internal:subscription_succeeded` per `private-chat`.
-- [ ] Il run automatico completa lo scenario M6-002 con due context Chromium,
+- [x] Il run automatico completa lo scenario M6-002 con due context Chromium,
   HTTPS/WSS reali e pipeline Redis/Horizon/Reverb/Echo.
-- [ ] `Re-run all jobs` sullo stesso commit completa nuovamente lo scenario.
-- [ ] Entrambi i run conservano la diagnostica prevista in caso di failure ed
+- [x] Due run manuali sullo stesso commit completano nuovamente lo scenario.
+- [x] Tutti i run conservano la diagnostica prevista in caso di failure ed
   eseguono sempre `docker compose down -v --remove-orphans`.
-- [ ] M6-004 registra le evidenze dei due run prima di essere riattivato e
+- [x] M6-004 registra le evidenze dei run prima di essere riattivato e
   chiuso.
 
 ## Rischi e assunzioni
@@ -225,8 +226,8 @@ I run `35255596983` e `35329235001` hanno riprodotto l'accesso di Reverb alla
 tabella `cache` prima del completamento delle migration. Reverb si e' poi
 ripreso ed era `healthy` prima di Playwright; nel secondo run ha anche accettato
 il WebSocket, quindi la race non spiega il payload nullo di
-`/broadcasting/auth`. La correzione minima resta necessaria in un commit
-separato, senza combinarla con l'iniezione delle connessioni broadcast e queue.
+`/broadcasting/auth`. La verifica e l'eventuale correzione restano separate,
+senza combinarle con l'iniezione delle connessioni broadcast e queue.
 Il warning sul runtime Node delle action e' considerato indipendente perche' il
 frontend gira con Node `24.19.0` dentro il container e
 `setup-node`/`upload-artifact` intervengono fuori dal processo che termina.
@@ -237,20 +238,20 @@ frontend gira con Node `24.19.0` dentro il container e
    `--webpack` e che `NEXT_TURBOPACK_TRACING` non sia piu' impostato.
 2. Nel run automatico, verificare stato finale dei container, HTTPS `200`, test
    Playwright, log Horizon/Reverb e cleanup.
-3. Dall'interfaccia GitHub selezionare `Re-run all jobs` sullo stesso commit.
+3. Dall'interfaccia GitHub avviare manualmente il workflow sullo stesso commit.
 4. Verificare gli stessi segnali nel secondo run e registrare ID e commit di
    entrambe le esecuzioni.
 
 ## Decisioni emerse
 
-- M6-005 e' il task operativo; M6-004 resta bloccato e conserva la
-  responsabilita' del risultato E2E complessivo.
+- M6-005 e' stato il task operativo che ha sbloccato il risultato E2E
+  complessivo di M6-004.
 - Webpack e' autorizzato come workaround esclusivamente per GitHub Actions;
   Turbopack resta attivo nello sviluppo locale.
 - La causa Turbopack non identificata viene conservata come contesto, ma non e'
   piu' un requisito di uscita per M6-004.
 - Due run completi verdi sullo stesso commit sono la soglia minima concordata:
-  uno automatico e uno tramite `Re-run all jobs`.
+  uno automatico e uno avviato manualmente dall'interfaccia GitHub.
 - Il `422` del run `35255596983` viene corretto rendendo esplicito
   `APP_ENV=local` nel solo override CI, invece di cambiare il titolo atteso o
   introdurre nel test la verifica esterna `uncompromised()`.
@@ -259,19 +260,20 @@ frontend gira con Node `24.19.0` dentro il container e
   CI per backend e Horizon, invece di trattare l'assenza dell'ack come un
   semplice timeout.
 - L'implementazione e' stata autorizzata dalla richiesta di lavorare su M6-005;
-  la chiusura resta subordinata ai due run remoti verdi.
+  la chiusura e' supportata da un run automatico e due run manuali verdi.
 
 ## File modificati
 
-- `docs/tasks/active/M6-005-stabilizzare-realtime-compose-ci-con-webpack.md`:
+- `docs/tasks/completed/M6-005-stabilizzare-realtime-compose-ci-con-webpack.md`:
   implementazione e registrazione delle verifiche.
 - `compose.ci.yaml`: comando frontend CI con Webpack e rimozione del tracing
   Turbopack.
 - `.github/workflows/ci.yml`: controllo stato/health subito prima di
   Playwright.
-- `docs/tasks/active/M6-004-eseguire-realtime-compose-in-ci.md`: task segnato
-  come bloccato da M6-005 e aggiornato con la verifica residua.
-- `docs/project/current-state.md`: M6-005 impostato come task attivo.
+- `docs/tasks/completed/M6-004-eseguire-realtime-compose-in-ci.md`: evidenze
+  remote registrate e task completato.
+- `docs/project/current-state.md`: chiusura di M6-004/M6-005 e prossimo task
+  proposto registrati.
 
 ## Risultati dei controlli
 
@@ -323,24 +325,34 @@ frontend gira con Node `24.19.0` dentro il container e
   ancora la connessione.
 - Lo stesso run ha riprodotto nuovamente la race sulla tabella `cache`; Reverb
   si e' riavviato, e' diventato healthy e ha poi accettato il WebSocket.
-- `Re-run all jobs`: non eseguito, perche' il run automatico non e' verde.
+- Run automatico GitHub Actions `35354527754` sul commit
+  `2ed245f8a8f66bde397cb35ca3498bc79f3e7274`: tutti i job sono verdi e lo
+  scenario Playwright realtime ha superato 2 test in 8,1 s.
+- Run manuali GitHub Actions `35354983412` e `35356225323` sullo stesso commit:
+  tutti i job sono nuovamente verdi e Playwright ha superato 2 test
+  rispettivamente in 8,6 s e 11,0 s.
+- I tre run hanno eseguito il cleanup finale. I log Compose completi vengono
+  raccolti soltanto in caso di failure, quindi i run verdi non permettono di
+  stabilire se la precedente race Reverb sulla tabella `cache` sia ricomparsa.
+- Il job backend dei tre run resta green con 213 assertion, ma riporta 39
+  warning non bloccanti. Una riproduzione da checkout senza `.env` ha
+  attribuito il warning a `vlucas/phpdotenv`: il bootstrap Laravel tenta la
+  lettura soppressa del file assente e PHPUnit 13 la registra per ogni Feature
+  test. Roster, PAO e Boost non sono i chiamanti.
 
 ## Problemi residui
 
-- Il workaround Webpack e' verificato sul runner GitHub fino all'avvio stabile
-  del frontend, allo smoke HTTPS e alla registrazione autenticata.
-- Il nuovo override delle connessioni Reverb e Redis deve ancora essere
-  verificato nel run GitHub completo, compresa la subscription e le mutazioni;
-  la prova locale reale e' riuscita.
-- M6-004 resta bloccato e non puo' essere dichiarato completo.
-- La race Reverb/migration e' ricomparsa anche nel nuovo log; non e' il
-  bloccante dimostrato della subscription, ma richiede una correzione separata.
+- Nessun problema residuo blocca lo scope di M6-005.
+- I warning PHPUnit per il `.env` assente sono noti, non modificano l'esito dei
+  test e restano fuori scope.
+- La race Reverb/migration osservata nei run falliti resta una verifica e una
+  correzione separate: i run verdi non conservano i log Compose necessari a
+  determinarne la presenza.
 
 ## Riepilogo finale
 
-Il workaround Webpack limitato alla CI, il controllo pre-Playwright e
-`APP_ENV=local` per i servizi Laravel CI sono stati implementati senza
-modificare il profilo locale o il codice applicativo. La registrazione ora
-riesce; il prossimo cambiamento proposto rende esplicite le connessioni Reverb
-e Redis nel solo override CI. Dopo un run automatico completamente verde resta
-necessario il `Re-run all jobs` sullo stesso commit.
+Il workaround Webpack limitato alla CI, il controllo pre-Playwright e le
+connessioni Laravel/Reverb/Redis esplicite sono stati implementati senza
+modificare il profilo locale o il codice applicativo. Un run automatico e due
+run manuali sullo stesso commit hanno completato l'intero workflow e lo
+scenario realtime; il profilo locale continua a usare Turbopack.

@@ -1,11 +1,10 @@
 # M6-004 — Eseguire realtime Compose in CI
 
-- **Stato:** bloccato
+- **Stato:** completato
 - **Milestone:** Milestone 6 — Test end-to-end e CI
 - **Data di apertura:** 2026-09-15
-- **Data di chiusura:**
+- **Data di chiusura:** 2026-09-18
 - **Dipendenze:** M6-001, M6-002, M6-003
-- **Bloccato da:** M6-005
 
 ## Contesto
 
@@ -111,20 +110,20 @@ effimera, mentre il bypass Playwright resta limitato al job E2E.
 
 ## Criteri di accettazione
 
-- [ ] Il job CI avvia lo stack Compose completo e risolve i due domini pubblici
+- [x] Il job CI avvia lo stack Compose completo e risolve i due domini pubblici
   senza usare Lerd, input locali dello sviluppatore o un secondo override E2E.
-- [ ] La CA e il certificato SAN sono generati prima dell'avvio;
+- [x] La CA e il certificato SAN sono generati prima dell'avvio;
   `compose.ci.yaml` riceve i loro path dall'environment del job e Node valida
   l'API con quella CA.
-- [ ] La configurazione Compose risolta prova che l'override rimpiazza, invece
+- [x] La configurazione Compose risolta prova che l'override rimpiazza, invece
   di sommare, i bind mount TLS: CA frontend, certificato e chiave Nginx hanno
   ciascuno un solo source CI e nessun source mkcert locale.
-- [ ] Chromium esegue con successo lo scenario M6-002 su HTTPS/WSS, con due
+- [x] Chromium esegue con successo lo scenario M6-002 su HTTPS/WSS, con due
   browser context e pipeline Redis/Horizon/Reverb/Echo reali.
-- [ ] Il solo bypass del trust del certificato temporaneo e' limitato a
+- [x] Il solo bypass del trust del certificato temporaneo e' limitato a
   Playwright CI tramite una variabile esplicita; HTTP e modifiche ai
   cookie/CORS non sono introdotti.
-- [ ] Failure di E2E conserva evidenze sufficienti alla diagnosi e il runner
+- [x] Failure di E2E conserva evidenze sufficienti alla diagnosi e il runner
   effettua il cleanup dei propri volumi anche in caso di errore.
 
 ## Rischi e assunzioni
@@ -237,24 +236,28 @@ Docker Compose e gli strumenti di generazione OpenSSL disponibili.
   La causa interna resta quindi non identificata.
 - M6-005 ha implementato nell'override CI il comando frontend Webpack e ha
   aggiunto la verifica di stato/health subito prima di Playwright; il profilo
-  locale resta invariato. I due run GitHub richiesti per riattivare questo task
-  non sono ancora disponibili.
+  locale resta invariato. Il run automatico `35354527754` e i run manuali
+  `35354983412` e `35356225323`, tutti sul commit
+  `2ed245f8a8f66bde397cb35ca3498bc79f3e7274`, hanno concluso tutti i job con
+  successo; lo scenario realtime ha superato 2 test in ogni esecuzione.
 
 ## Problemi residui
 
 - Il bloccante del filtro `jq`, la regressione dei tag mobili delle action e la
   race Composer del bootstrap Compose sono stati corretti e verificati; non
   restano problemi statici o runtime locali di questo scope.
-- I run reali GitHub Actions precedenti hanno rilevato il difetto Turbopack;
-  M6-005 ha applicato il workaround Webpack limitato alla CI, ma deve ancora
-  verificarlo con i due run richiesti prima che questo task possa riprendere ed
-  essere chiuso.
-- La verifica residua richiede pubblicare la correzione e controllare nel nuovo
-  runner effimero log Horizon/Reverb, report E2E e cleanup `down -v`.
+- Nessun problema residuo blocca lo scope di M6-004.
+- La CI usa Webpack come workaround verificato, mentre il Compose locale
+  conserva Turbopack. La causa interna del crash Turbopack remoto resta
+  intenzionalmente non identificata.
+- La race Reverb/migration osservata nei precedenti artifact di failure resta
+  fuori scope e richiede una verifica separata, poiche' i run verdi non
+  conservano i log Compose completi.
 
 ## Riepilogo finale
 
-L'implementazione del job CI e dei relativi override/configurazione e' stata
-completata e verificata staticamente. M6-004 e' bloccato da M6-005 e non viene
-spostato in `completed` finche' due run reali GitHub Actions sullo stesso commit
-non confermano lo scenario HTTPS/WSS a due context e il cleanup del runner.
+Il job CI avvia e verifica lo stack Compose completo con TLS effimero e lo
+scenario HTTPS/WSS a due context, quindi esegue sempre il cleanup del runner.
+Un run automatico e due run manuali verdi sullo stesso commit completano la
+verifica remota richiesta; Webpack resta confinato alla CI e Turbopack al
+profilo locale.

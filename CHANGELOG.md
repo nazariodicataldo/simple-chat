@@ -25,6 +25,10 @@ Il formato e' ispirato a [Keep a Changelog](https://keepachangelog.com/it/1.1.0/
   Next.js, Reverb, Horizon e Nginx; HTTPS/WSS su `127.0.0.1:8443`, certificato
   SAN locale ignorato da Git e smoke browser a due profili.
 
+- GitHub Actions end-to-end con stack Compose completo, TLS effimero e
+  Playwright realtime a due context; Webpack e' limitato alla CI mentre lo
+  sviluppo locale continua a usare Turbopack.
+
 ### Changed
 
 - Completata la verifica runtime di Horizon: un solo consumer locale osserva

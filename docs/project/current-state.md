@@ -1,16 +1,15 @@
 # Stato corrente
 
 - **Milestone corrente:** Milestone 6 — Test end-to-end e CI (avviata 2026-09-14).
-- **Ultimo task completato:** M6-003 — Aggiungere CI per la qualita' applicativa.
-- **Task attivo:** M6-005 — Stabilizzare realtime Compose CI con Webpack.
-- **Task bloccato:** M6-004 — Eseguire realtime Compose in CI, bloccato da
-  M6-005.
+- **Ultimo task completato:** M6-005 — Stabilizzare realtime Compose CI con
+  Webpack; M6-004 e' stato chiuso con la stessa evidenza remota.
+- **Task attivo:** M6-006 — Aggiornare le action CI al runtime Node 24.
 - **Compilatore frontend:** locale: Turbopack; job GitHub Actions Realtime
   Compose E2E: Webpack. L'override CI usa ora Webpack; il profilo locale resta
   invariato con Turbopack.
-- **Prossimo task suggerito:** verificare i due run GitHub Actions richiesti da
-  M6-005 sullo stesso commit.
-- **Ultimo aggiornamento:** 2026-09-17.
+- **Prossimo task suggerito:** pubblicare la modifica M6-006 ed eseguire il run
+  GitHub completo per verificare i log delle action Node 24.
+- **Ultimo aggiornamento:** 2026-09-19.
 
 ## Funzionalita' esistenti
 
@@ -166,8 +165,8 @@
   residui o duplicati, attende health/`✓ Ready`/HTTPS e poi esegue Chromium con
   `ignoreHTTPSErrors` soltanto tramite variabile esplicita. I run reali GitHub
   Actions hanno rilevato un crash Turbopack del frontend dopo la richiesta di
-  readiness HTTPS; la causa interna di `/app/app` non e' stata identificata e
-  il task e' ora bloccato da M6-005.
+  readiness HTTPS; la causa interna di `/app/app` non e' stata identificata.
+  M6-005 ha stabilizzato il percorso remoto con Webpack soltanto in CI.
 - M6-005 implementa Webpack soltanto nell'override CI del frontend e rimuove il
   tracing Turbopack dall'ambiente CI; il Compose locale conserva il comando
   Turbopack. Il workflow verifica tutti i container e gli healthcheck subito
@@ -176,8 +175,15 @@
   lo sovrascrive esplicitamente con `APP_ENV=testing`, broadcast nullo e coda
   sincrona. Dopo il payload nullo del run `35329235001`, backend e Horizon
   ricevono inoltre `BROADCAST_CONNECTION=reverb` e `QUEUE_CONNECTION=redis`
-  soltanto nell'override CI. La verifica remota richiede ancora un run
-  automatico e un `Re-run all jobs` verdi sullo stesso commit.
+  soltanto nell'override CI. Il run automatico `35354527754` e i run manuali
+  `35354983412` e `35356225323`, tutti sul commit
+  `2ed245f8a8f66bde397cb35ca3498bc79f3e7274`, hanno concluso tutti i job con
+  successo e superato i 2 test Playwright.
+- M6-006 aggiorna soltanto i pin CI di `setup-node` a `v7.0.0` e
+  `upload-artifact` a `v7.0.1`, entrambi con SHA immutabile e runtime action
+  Node 24; Node progetto `24.19.0`, checkout, input, trigger, permessi e job
+  restano invariati. La verifica remota del commit della modifica resta da
+  eseguire.
 
 ## Test esistenti
 
@@ -221,7 +227,9 @@
   quindi `502` alle navigazioni Playwright. La root Turbopack esplicita non ha
   cambiato il secondo run. In quei run non era ancora presente un compilatore
   alternativo; M6-005 ha poi scelto Webpack esclusivamente per la CI, lasciando
-  Turbopack in locale. Il rerun GitHub resta necessario prima del completamento.
+  Turbopack in locale. Il run automatico `35354527754` e i due run manuali
+  `35354983412` e `35356225323` sullo stesso commit sono poi riusciti; M6-004
+  e' completato.
   La riproduzione manuale successiva ha superato mount TLS (`jq: true`),
   build/avvio, health, HTTPS e Playwright realtime (`2 passed`); una prima
   attesa `✓ Ready` è scaduta mentre il log frontend mostrava già la readiness,
@@ -260,8 +268,24 @@ attivita' e risoluzioni sotto `/app`, ma non contiene un evento filtrabile con
   controllo pre-Playwright richiede i sette servizi `running` e gli healthcheck
   `healthy`. Dopo la ricreazione locale dei soli servizi backend, Reverb e
   Horizon con le nuove variabili, Playwright reale HTTPS/WSS ha superato 2 test
-  in 18,2 s; il nuovo run GitHub deve ancora verificare subscription e
-  mutazioni realtime.
+  in 18,2 s. Il run automatico GitHub `35354527754` e i run manuali
+  `35354983412` e `35356225323` sullo stesso commit hanno poi superato tutti i
+  job e i 2 test realtime.
+
+- M6-006, 2026-09-19: i tag ufficiali `setup-node@v7.0.0` e
+  `upload-artifact@v7.0.1` risolvono agli SHA previsti e i manifest dichiarano
+  `runs.using: node24`. Il parser PyYAML, il controllo statico dei pin e
+  `git diff --check` sono riusciti. Il run GitHub e la verifica dell'assenza dei
+  warning Node 20 restano non eseguiti per autenticazione `gh` invalida e
+  modifica non ancora pubblicata.
+
+- La suite backend nei tre run verdi completa 213 assertion ma mostra 39
+  warning non bloccanti. La riproduzione da checkout senza `.env` li attribuisce
+  al bootstrap Laravel tramite `vlucas/phpdotenv`: PHPUnit 13 registra il
+  `file_get_contents()` soppresso del file assente per ogni Feature test. Le
+  ipotesi Roster, PAO e Boost sono escluse dal codice installato. La race
+  Reverb sulla tabella `cache` resta separata e non e' verificabile dai run
+  verdi, che raccolgono i log Compose completi soltanto in caso di failure.
 
 - M5-004, 2026-09-07: `docker compose config --quiet`, build e avvio di
   PostgreSQL, Redis, backend, Reverb e Horizon riusciti. PostgreSQL e Redis
