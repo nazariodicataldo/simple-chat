@@ -1,9 +1,9 @@
 # M6-006 — Aggiornare le action CI al runtime Node 24
 
-- **Stato:** attivo
+- **Stato:** completato
 - **Milestone:** Milestone 6 — Test end-to-end e CI
 - **Data di apertura:** 2026-09-18
-- **Data di chiusura:**
+- **Data di chiusura:** 2026-09-19
 - **Dipendenze:** M6-003, M6-005
 
 ## Contesto
@@ -93,8 +93,8 @@ restino verdi e che i warning Node 20 delle due action non compaiano piu'.
   dichiarano runtime Node 24.
 - [x] `checkout@v7.0.1`, Node progetto `24.19.0`, input artifact, trigger,
   permessi e struttura dei job restano invariati.
-- [ ] Il workflow completo termina con successo sul commit della modifica.
-- [ ] Nei log non compaiono piu' i warning di dismissione Node 20 relativi a
+- [x] Il workflow completo termina con successo sul commit della modifica.
+- [x] Nei log non compaiono piu' i warning di dismissione Node 20 relativi a
   `setup-node` e `upload-artifact`.
 
 ## Rischi e assunzioni
@@ -122,8 +122,7 @@ sostituita dal solo parsing YAML.
 
 - `.github/workflows/ci.yml`: pin immutabili di `setup-node@v7.0.0` e
   `upload-artifact@v7.0.1`, con commenti di release aggiornati.
-- `docs/project/current-state.md`: stato dell'implementazione locale e verifica
-  remota residua.
+- `docs/project/current-state.md`: stato dell'implementazione e verifica remota.
 - Questo task: criteri e risultati aggiornati.
 
 ## Risultati dei controlli
@@ -142,9 +141,13 @@ sostituita dal solo parsing YAML.
   `24.19.0`, input artifact, `failure()` e `if-no-files-found: ignore`.
 - `git diff --check`: superato. `git diff --stat` e revisione del diff:
   eseguiti.
-- Run GitHub Actions: non eseguito; `gh auth status` segnala il token GitHub
-  configurato come invalido e la modifica non e' ancora pubblicata su un
-  commit remoto.
+- Run GitHub Actions `35434871868`: superato sul commit
+  `7d77c28f41e5741b88561d976a0b1c67d499795a`; `Realtime Compose E2E`,
+  `frontend` e `backend` sono terminati con successo.
+- Verifica log: la ricerca di `node.js 20`, `node20` e `deprecat` non mostra
+  warning delle action; le sole righe `deprecation` presenti riguardano nomi
+  di pacchetti Composer (`symfony/deprecation-contracts` e
+  `doctrine/deprecations`).
 
 ## Problemi residui
 
@@ -153,6 +156,6 @@ sostituita dal solo parsing YAML.
 
 ## Riepilogo finale
 
-I due pin sono stati implementati e verificati localmente. Il task resta attivo
-perche' mancano il run GitHub sul commit della modifica e la verifica nei log
-dell'assenza dei warning Node 20.
+I due pin sono stati implementati, verificati localmente e confermati dal run
+GitHub completo sul commit della modifica. I warning Node 20 delle due action
+non compaiono nei log; il task e' completato.

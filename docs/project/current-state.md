@@ -1,14 +1,14 @@
 # Stato corrente
 
 - **Milestone corrente:** Milestone 6 — Test end-to-end e CI (avviata 2026-09-14).
-- **Ultimo task completato:** M6-005 — Stabilizzare realtime Compose CI con
-  Webpack; M6-004 e' stato chiuso con la stessa evidenza remota.
-- **Task attivo:** M6-006 — Aggiornare le action CI al runtime Node 24.
+- **Ultimo task completato:** M6-006 — Aggiornare le action CI al runtime Node
+  24; M6-004 e M6-005 sono stati chiusi con la stessa evidenza remota.
+- **Task attivo:** nessuno.
 - **Compilatore frontend:** locale: Turbopack; job GitHub Actions Realtime
   Compose E2E: Webpack. L'override CI usa ora Webpack; il profilo locale resta
   invariato con Turbopack.
-- **Prossimo task suggerito:** pubblicare la modifica M6-006 ed eseguire il run
-  GitHub completo per verificare i log delle action Node 24.
+- **Prossimo task suggerito:** raccogliere, in un task separato, un log che
+  confermi lo stato attuale della race Reverb sulla tabella `cache`.
 - **Ultimo aggiornamento:** 2026-09-19.
 
 ## Funzionalita' esistenti
@@ -182,8 +182,9 @@
 - M6-006 aggiorna soltanto i pin CI di `setup-node` a `v7.0.0` e
   `upload-artifact` a `v7.0.1`, entrambi con SHA immutabile e runtime action
   Node 24; Node progetto `24.19.0`, checkout, input, trigger, permessi e job
-  restano invariati. La verifica remota del commit della modifica resta da
-  eseguire.
+  restano invariati. Il run GitHub `35434871868` sul commit
+  `7d77c28f41e5741b88561d976a0b1c67d499795a` ha superato i job `Realtime Compose
+  E2E`, `frontend` e `backend`; i warning Node 20 delle action non compaiono.
 
 ## Test esistenti
 
@@ -275,9 +276,9 @@ attivita' e risoluzioni sotto `/app`, ma non contiene un evento filtrabile con
 - M6-006, 2026-09-19: i tag ufficiali `setup-node@v7.0.0` e
   `upload-artifact@v7.0.1` risolvono agli SHA previsti e i manifest dichiarano
   `runs.using: node24`. Il parser PyYAML, il controllo statico dei pin e
-  `git diff --check` sono riusciti. Il run GitHub e la verifica dell'assenza dei
-  warning Node 20 restano non eseguiti per autenticazione `gh` invalida e
-  modifica non ancora pubblicata.
+  `git diff --check` sono riusciti. Il run GitHub `35434871868` sul commit
+  `7d77c28f41e5741b88561d976a0b1c67d499795a` ha completato con successo tutti
+  i job; la ricerca dei marker Node 20 non ha trovato warning delle action.
 
 - La suite backend nei tre run verdi completa 213 assertion ma mostra 39
   warning non bloccanti. La riproduzione da checkout senza `.env` li attribuisce
