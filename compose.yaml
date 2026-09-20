@@ -58,6 +58,15 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    # L'entrypoint avvia PHP-FPM solo dopo le migration: questa porta diventa
+    # quindi la barriera che impedisce a Reverb di usare una cache incompleta.
+    healthcheck:
+      test:
+        ["CMD", "php", "-r", "exit(@fsockopen('127.0.0.1', 9000) === false);"]
+      interval: 5s
+      timeout: 5s
+      retries: 24
+      start_period: 60s
     volumes:
       - ./backend:/var/www/html
       - backend-vendor:/var/www/html/vendor
@@ -93,6 +102,8 @@ services:
       postgres:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      backend:
         condition: service_healthy
     volumes:
       - ./backend:/var/www/html

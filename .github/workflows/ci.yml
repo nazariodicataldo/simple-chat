@@ -255,15 +255,16 @@ jobs:
         run: |
           set -euo pipefail
           if ! reverb_logs="$(docker compose --env-file "$COMPOSE_ENV_FILE" logs --no-color reverb 2>&1)"; then
-            echo '::warning title=Log Reverb non disponibile::Non e stato possibile osservare la race della tabella cache.'
+            echo '::error title=Log Reverb non disponibile::Non e stato possibile verificare la race della tabella cache.'
             printf '%s\n' "$reverb_logs"
-            exit 0
+            exit 1
           fi
 
-          # La race puo' essere recuperata prima del browser: il log la rende visibile anche nei run verdi.
+          # La race non e' accettabile anche se Reverb riesce a recuperare prima del browser.
           if grep -Fq 'relation "cache" does not exist' <<< "$reverb_logs"; then
-            echo '::warning title=Race Reverb/cache rilevata::Reverb ha interrogato la tabella cache prima del completamento delle migration.'
+            echo '::error title=Race Reverb/cache rilevata::Reverb ha interrogato la tabella cache prima del completamento delle migration.'
             grep -F -C 3 'relation "cache" does not exist' <<< "$reverb_logs"
+            exit 1
           else
             echo 'Race Reverb/cache non rilevata nei log del servizio.'
           fi
