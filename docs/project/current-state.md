@@ -1,16 +1,15 @@
 # Stato corrente
 
 - **Milestone corrente:** Milestone 6 — Test end-to-end e CI (avviata 2026-09-14).
-- **Ultimo task completato:** M6-006 — Aggiornare le action CI al runtime Node
-  24; M6-004 e M6-005 sono stati chiusi con la stessa evidenza remota.
-- **Task attivo:** M6-007 — Eliminare la race Reverb/cache nell'avvio Compose.
+- **Ultimo task completato:** M6-007 — Eliminare la race Reverb/cache nell'avvio
+  Compose; M6-004, M6-005 e M6-006 sono stati chiusi con evidenza remota.
+- **Task attivo:** nessuno.
 - **Compilatore frontend:** locale: Turbopack; job GitHub Actions Realtime
   Compose E2E: Webpack. L'override CI usa ora Webpack; il profilo locale resta
   invariato con Turbopack.
-- **Prossimo task suggerito:** completare la verifica remota di M6-007 sul
-  commit della modifica, controllando il job Compose E2E e il controllo
-  anti-race bloccante.
-- **Ultimo aggiornamento:** 2026-09-19.
+- **Prossimo task suggerito:** selezionare il prossimo task pianificato della
+  Milestone 6.
+- **Ultimo aggiornamento:** 2026-09-20.
 
 ## Funzionalita' esistenti
 
@@ -195,7 +194,11 @@
   raggiunto backend/Reverb healthy e Horizon running senza race; il terzo ha
   superato Playwright HTTPS/WSS con 2 test. Il test negativo ha confermato che
   una migration fallita lascia backend `unhealthy` e Reverb non avviato. Il run
-  GitHub sul nuovo commit resta da eseguire, quindi M6-007 e' ancora attivo.
+  GitHub `35518906231` sul commit `1865335ed0ecde98919281be057825397ba6592d`
+  ha completato con successo i job `backend`, `frontend` e `Realtime Compose
+  E2E`; quest'ultimo ha superato 2 test Playwright e il controllo anti-race ha
+  confermato l'assenza di `relation "cache" does not exist`. M6-007 e'
+  completato.
 
 ## Test esistenti
 
@@ -291,7 +294,7 @@ attivita' e risoluzioni sotto `/app`, ma non contiene un evento filtrabile con
   `7d77c28f41e5741b88561d976a0b1c67d499795a` ha completato con successo tutti
   i job; la ricerca dei marker Node 20 non ha trovato warning delle action.
 
-- M6-007, 2026-09-19: `docker compose config --quiet` locale e CI sono
+- M6-007, 2026-09-20: `docker compose config --quiet` locale e CI sono
   riusciti. Tre cold start con progetti e volumi usa-e-getta hanno misurato
   Composer 24-31 s e backend healthy 54-64 s dopo il bootstrap; Reverb e'
   diventato healthy solo dopo il backend e Horizon e' rimasto running. I log
@@ -300,8 +303,11 @@ attivita' e risoluzioni sotto `/app`, ma non contiene un evento filtrabile con
   `created`. L'ultimo ciclo ha superato `corepack pnpm e2e` con 2 test in 15,2 s
   dopo la readiness `✓ Ready` di Next e HTTPS. Il controllo shell anti-race ha
   restituito esito non zero per log illeggibili e race, zero per log puliti. Il
-  workflow GitHub sul nuovo commit non e' ancora stato eseguito; non e' una
-  evidenza remota della modifica corrente.
+  workflow GitHub `35518906231` sul commit `1865335ed0ecde98919281be057825397ba6592d`
+  ha completato con successo tutti i job. Il job `Realtime Compose E2E` ha
+  verificato i servizi prima di Playwright, superato 2 test in 8,8 s e stampato
+  `Race Reverb/cache non rilevata nei log del servizio.`; il teardown con volumi
+  e' riuscito.
 
 - La suite backend nei tre run verdi completa 213 assertion ma mostra 39
   warning non bloccanti. La riproduzione da checkout senza `.env` li attribuisce

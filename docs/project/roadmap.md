@@ -27,7 +27,7 @@ Nginx con HTTPS/WSS locale su `127.0.0.1:8443`. **DoD:** l'ambiente completo
 parte riproducibilmente con Compose; login Sanctum, CRUD e realtime sono stati
 verificati con due browser senza refresh.
 
-## Milestone 6 — Test end-to-end e CI
+## Milestone 6 — Test end-to-end e CI (completata 2026-09-20)
 
 Playwright con due browser context, test backend/frontend, lint, typecheck, build e GitHub Actions essenziale. **DoD:** il flusso real-time reale e' verificato senza mock di Redis, worker, Reverb o Echo.
 

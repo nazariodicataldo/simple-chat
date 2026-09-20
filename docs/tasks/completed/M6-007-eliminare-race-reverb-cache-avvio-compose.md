@@ -1,9 +1,9 @@
 # M6-007 — Eliminare la race Reverb/cache nell'avvio Compose
 
-- **Stato:** attivo
+- **Stato:** completato
 - **Milestone:** Milestone 6 — Test end-to-end e CI
 - **Data di apertura:** 2026-09-19
-- **Data di chiusura:**
+- **Data di chiusura:** 2026-09-20
 - **Dipendenze:** M5-002, M5-004, M6-005
 
 ## Contesto
@@ -143,13 +143,13 @@ pulito e contenente soltanto valori fittizi.
 - [x] Tre cold start isolati con database e volumi nuovi raggiungono backend e
   Reverb healthy e Horizon running, senza `relation "cache" does not exist`
   nei log Reverb o Horizon.
-- [ ] I tempi osservati giustificano i parametri finali dell'healthcheck sia
+- [x] I tempi osservati giustificano i parametri finali dell'healthcheck sia
   per il percorso locale, che include Composer a volume vuoto, sia per quello
   CI con dipendenze gia' installate e `SKIP_COMPOSER_INSTALL=true`.
 - [x] Playwright supera lo scenario HTTPS/WSS reale nell'ultimo cold start.
 - [x] Il controllo CI conserva `always()`, fallisce alla prima occorrenza della
   race e fallisce se i log Reverb non sono leggibili.
-- [ ] Il workflow GitHub completo termina con successo e il controllo
+- [x] Il workflow GitHub completo termina con successo e il controllo
   bloccante conferma l'assenza della race.
 - [x] I volumi locali abituali non vengono eliminati e non sono introdotte
   modifiche fuori scope.
@@ -209,8 +209,8 @@ gia'.
   Reverb illeggibili o per una sola occorrenza della race, con annotazione
   `::error`.
 - `docs/project/current-state.md`: registrate implementazione ed evidenze.
-- Questo task: criteri ed evidenze aggiornati; resta attivo finche' manca il run
-  GitHub sul nuovo commit.
+- Questo task: criteri ed evidenze aggiornati; spostato in
+  `docs/tasks/completed/` dopo la verifica remota.
 
 ## Risultati dei controlli
 
@@ -244,24 +244,28 @@ istruzione esatta per completarlo.
 - `docker compose --env-file compose.env.example -f compose.yaml -f
   compose.ci.yaml config --quiet`: riuscito; Webpack CI e nuovi depends_on
   risolti senza modificare `compose.ci.yaml`.
+- `gh run view 35518906231`: workflow `Application quality` riuscito sul commit
+  `1865335ed0ecde98919281be057825397ba6592d`; job `backend`, `frontend` e
+  `Realtime Compose E2E` completati con successo. Nel job realtime il controllo
+  pre-Playwright ha trovato tutti i servizi running, Playwright ha superato 2
+  test in 8,8s e il controllo anti-race ha stampato `Race Reverb/cache non
+  rilevata nei log del servizio.`; il teardown Compose e' riuscito.
+- Il run CI ha completato il bootstrap Compose entro la finestra di healthcheck:
+  il job ha raggiunto PostgreSQL, Redis e Reverb healthy, con backend healthy
+  verificato dal controllo pre-Playwright. Insieme ai tre cold start locali
+  (Composer 24-31s, backend healthy 54-64s dopo il bootstrap), questo giustifica
+  la finestra configurata con riferimento ai 180s del workflow.
 - `git diff --check`: riuscito.
-- Workflow GitHub completo: non eseguito sul nuovo codice. L'ultimo run
-  disponibile (`35438910383`) e' sul vecchio SHA
-  `1a66eacd406332e71488d1dd52a2fe921f530279`; manca un commit remoto della
-  modifica corrente. Per completare questa verifica: creare/pushare il commit
-  M6-007 e controllare il job `Realtime Compose E2E` e il controllo anti-race.
 
 ## Problemi residui
 
-- La verifica remota sul nuovo commit resta non eseguita; per questo il task
-  non viene spostato in `completed`.
-- L'avvio con volumi Composer completamente vuoti mantiene la race concorrente
-  gia' nota e fuori scope; i tre cold start sono stati eseguiti con installazione
-  Composer sequenziale prima dei servizi applicativi.
+- Nessuno per lo scope M6-007. Il workflow CI mantiene intenzionalmente
+  l'installazione Composer sequenziale prima dell'avvio dei servizi; non sono
+  stati modificati entrypoint, dipendenze o il volume condiviso `vendor`.
 
 ## Riepilogo finale
 
 La correzione locale e il controllo CI sono implementati e verificati con
-configurazione Compose, tre cold start isolati, test negativo migration e
-Playwright HTTPS/WSS. Il task resta attivo soltanto per l'evidenza GitHub sul
-nuovo commit.
+configurazione Compose, tre cold start isolati, test negativo migration,
+Playwright HTTPS/WSS e il workflow GitHub completo `35518906231`. Il controllo
+anti-race remoto e' bloccante e ha confermato l'assenza della race.
