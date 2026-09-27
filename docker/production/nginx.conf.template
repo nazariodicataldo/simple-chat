@@ -1,0 +1,111 @@
+worker_processes 1;
+pid /tmp/nginx.pid;
+error_log /dev/stderr notice;
+
+events {
+    worker_connections 256;
+}
+
+http {
+    include /etc/nginx/mime.types;
+    default_type application/octet-stream;
+    access_log /dev/stdout;
+    client_body_temp_path /tmp/nginx/client_body;
+    fastcgi_temp_path /tmp/nginx/fastcgi;
+    proxy_temp_path /tmp/nginx/proxy;
+    scgi_temp_path /tmp/nginx/scgi;
+    uwsgi_temp_path /tmp/nginx/uwsgi;
+
+    map $http_upgrade $connection_upgrade {
+        default upgrade;
+        '' close;
+    }
+
+    map $http_x_forwarded_proto $forwarded_proto {
+        default $scheme;
+        http http;
+        https https;
+    }
+
+    map $http_x_forwarded_port $forwarded_port {
+        default $http_x_forwarded_port;
+        '' $server_port;
+    }
+
+    map $forwarded_proto $forwarded_https {
+        default '';
+        https on;
+    }
+
+    upstream frontend {
+        server 127.0.0.1:3000;
+    }
+
+    upstream reverb {
+        server 127.0.0.1:8081;
+    }
+
+    server {
+        listen ${PORT};
+        server_name _;
+        root /var/www/html/public;
+        index index.php;
+
+        # Reverb deve ricevere il percorso completo e l'upgrade WebSocket sullo stesso host pubblico.
+        location ~ ^/(app|apps)(/|$) {
+            proxy_pass http://reverb;
+            proxy_http_version 1.1;
+            proxy_set_header Host $http_host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Host $http_host;
+            proxy_set_header X-Forwarded-Port $forwarded_port;
+            proxy_set_header X-Forwarded-Proto $forwarded_proto;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection $connection_upgrade;
+        }
+
+        # Solo questi percorsi pubblici appartengono a Laravel; la root resta il server Next.
+        location ~ ^/(api|sanctum|broadcasting|horizon|up)(/|$) {
+            try_files $uri $uri/ /index.php?$query_string;
+        }
+
+        location = /index.php {
+            include /etc/nginx/fastcgi_params;
+            fastcgi_param SCRIPT_FILENAME /var/www/html/public/index.php;
+            fastcgi_param DOCUMENT_ROOT /var/www/html/public;
+            fastcgi_param HTTP_HOST $http_host;
+            fastcgi_param HTTP_ACCEPT $http_accept;
+            fastcgi_param HTTP_AUTHORIZATION $http_authorization;
+            fastcgi_param HTTP_COOKIE $http_cookie;
+            fastcgi_param HTTP_ORIGIN $http_origin;
+            fastcgi_param HTTP_REFERER $http_referer;
+            fastcgi_param HTTP_X_REQUESTED_WITH $http_x_requested_with;
+            fastcgi_param HTTP_X_XSRF_TOKEN $http_x_xsrf_token;
+            fastcgi_param HTTP_X_FORWARDED_FOR $proxy_add_x_forwarded_for;
+            fastcgi_param HTTP_X_FORWARDED_HOST $http_host;
+            fastcgi_param HTTP_X_FORWARDED_PORT $forwarded_port;
+            fastcgi_param HTTP_X_FORWARDED_PROTO $forwarded_proto;
+            fastcgi_param HTTPS $forwarded_https;
+            fastcgi_param SERVER_PORT $forwarded_port;
+            fastcgi_pass 127.0.0.1:9000;
+        }
+
+        location ~ \.php$ {
+            return 404;
+        }
+
+        location / {
+            proxy_pass http://frontend;
+            proxy_http_version 1.1;
+            proxy_set_header Host $http_host;
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Host $http_host;
+            proxy_set_header X-Forwarded-Port $forwarded_port;
+            proxy_set_header X-Forwarded-Proto $forwarded_proto;
+            proxy_set_header Upgrade $http_upgrade;
+            proxy_set_header Connection $connection_upgrade;
+        }
+    }
+}

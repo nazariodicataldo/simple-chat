@@ -1,15 +1,15 @@
 # Stato corrente
 
-- **Milestone corrente:** Milestone 6 — Test end-to-end e CI (avviata 2026-09-14).
-- **Ultimo task completato:** M6-007 — Eliminare la race Reverb/cache nell'avvio
-  Compose; M6-004, M6-005 e M6-006 sono stati chiusi con evidenza remota.
+- **Milestone corrente:** Milestone 7 — Deployment (avviata 2026-09-22).
+- **Ultimo task completato:** M7-001 — Costruire l'immagine production unificata;
+  M6-004, M6-005, M6-006 e M6-007 sono stati chiusi con le rispettive evidenze.
 - **Task attivo:** nessuno.
 - **Compilatore frontend:** locale: Turbopack; job GitHub Actions Realtime
   Compose E2E: Webpack. L'override CI usa ora Webpack; il profilo locale resta
   invariato con Turbopack.
-- **Prossimo task suggerito:** selezionare il prossimo task pianificato della
-  Milestone 6.
-- **Ultimo aggiornamento:** 2026-09-20.
+- **Prossimo task suggerito:** M7-002 — Collegare Neon PostgreSQL production;
+  non avviare task successivi senza una nuova attivazione esplicita.
+- **Ultimo aggiornamento:** 2026-09-26.
 
 ## Funzionalita' esistenti
 
@@ -199,6 +199,22 @@
   E2E`; quest'ultimo ha superato 2 test Playwright e il controllo anti-race ha
   confermato l'assenza di `relation "cache" does not exist`. M6-007 e'
   completato.
+
+- M7-001, completato il 2026-09-26, ha aggiunto l'immagine production multi-stage sotto
+  `docker/production/`: Nginx unico instrada Next, Laravel e Reverb; l'entrypoint
+  esegue una sola migration prima di Supervisor; Next, PHP-FPM, Horizon e Reverb
+  girano come `app` non-root con log standard e listener `FATAL`. Il browser usa
+  API relative e WSS same-origin, SSR usa loopback Nginx e Laravel pubblica verso
+  Reverb su loopback. Build e smoke runtime isolato hanno verificato routing
+  (`/up` e `/` `200`, API guest `401`, WebSocket `101`), failure migration,
+  restart, FATAL e shutdown; la build rigenera la classmap Composer dopo la
+  copia delle classi applicative e verifica una route controller. Il controllo
+  filesystem distingue i manifest runtime standalone Next dai file sorgente e
+  rifiuta `.env`, certificati, lockfile e artefatti superflui; memoria locale
+  osservata circa `248 MiB`.
+  `composer test` ha poi superato 41 test e 213 assertion dopo l'allineamento
+  locale dell'origine Sanctum/CORS a `app.simple-chat.test:8443`; Pint, PHPStan
+  con limite esplicito, frontend test/lint/typecheck e build host sono riusciti.
 
 ## Test esistenti
 

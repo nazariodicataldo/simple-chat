@@ -217,6 +217,18 @@ return [
                 'timeout' => 60,
             ],
         ],
+        // Production mantiene la stessa politica singola gia' verificata in locale.
+        'production' => [
+            'chat-default' => [
+                'connection' => 'redis',
+                'queue' => ['default'],
+                'balance' => 'simple',
+                'processes' => 1,
+                'tries' => 3,
+                'backoff' => 5,
+                'timeout' => 60,
+            ],
+        ],
     ],
 
     /*

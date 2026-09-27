@@ -1,4 +1,8 @@
 .git
+**/.cert
+**/.env
+**/.env.*
+!**/.env.example
 compose.env
 frontend/.env
 frontend/.env.*

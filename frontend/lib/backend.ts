@@ -1,9 +1,4 @@
-const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL
-
-export function getBackendUrl() {
-  if (!backendUrl) {
-    throw new Error("NEXT_PUBLIC_BACKEND_URL must be configured.")
-  }
-
-  return backendUrl.replace(/\/$/, "")
+export function getBackendUrl(): string {
+  // Un bundle production non deve fissare il dominio pubblico: una stringa vuota lascia usare all'Axios browser l'origine corrente.
+  return (process.env.NEXT_PUBLIC_BACKEND_URL ?? "").replace(/\/$/, "")
 }

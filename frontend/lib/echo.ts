@@ -15,17 +15,32 @@ if (typeof window !== "undefined") {
 }
 
 function reverbPort(): number {
-  return Number(process.env.NEXT_PUBLIC_REVERB_PORT ?? 8080)
+  return Number(
+    process.env.NEXT_PUBLIC_REVERB_PORT ?? (window.location.port || 443)
+  )
+}
+
+// In production l'host pubblico nasce dopo il build dell'immagine: l'origine del browser resta la fonte di verita'.
+function reverbHost(): string {
+  return process.env.NEXT_PUBLIC_REVERB_HOST ?? window.location.hostname
+}
+
+function reverbUsesTls(): boolean {
+  return (
+    process.env.NEXT_PUBLIC_REVERB_SCHEME === "https" ||
+    (!process.env.NEXT_PUBLIC_REVERB_SCHEME &&
+      window.location.protocol === "https:")
+  )
 }
 
 function createEcho(): Echo<"reverb"> {
   return new Echo({
     broadcaster: "reverb",
     key: process.env.NEXT_PUBLIC_REVERB_APP_KEY,
-    wsHost: process.env.NEXT_PUBLIC_REVERB_HOST,
+    wsHost: reverbHost(),
     wsPort: reverbPort(),
     wssPort: reverbPort(),
-    forceTLS: process.env.NEXT_PUBLIC_REVERB_SCHEME === "https",
+    forceTLS: reverbUsesTls(),
     enabledTransports: ["ws", "wss"],
     channelAuthorization: {
       customHandler: ({ socketId, channelName }, callback) => {

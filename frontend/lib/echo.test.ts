@@ -1,3 +1,5 @@
+// @vitest-environment-options {"url":"https://chat.example.test/"}
+
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 const mocks = vi.hoisted(() => ({
@@ -77,6 +79,24 @@ describe("Echo Reverb client", () => {
         wsPort: 8080,
         wssPort: 8080,
         forceTLS: false,
+      })
+    )
+  })
+
+  it("uses the HTTPS browser origin when production Reverb values are not public build variables", async () => {
+    vi.stubEnv("NEXT_PUBLIC_REVERB_APP_KEY", "production-public-key")
+
+    const { getEcho } = await import("@/lib/echo")
+
+    getEcho()
+
+    expect(mocks.echo).toHaveBeenCalledWith(
+      expect.objectContaining({
+        key: "production-public-key",
+        wsHost: "chat.example.test",
+        wsPort: 443,
+        wssPort: 443,
+        forceTLS: true,
       })
     )
   })
