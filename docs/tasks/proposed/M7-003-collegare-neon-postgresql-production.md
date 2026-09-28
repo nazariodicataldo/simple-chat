@@ -1,10 +1,10 @@
-# M7-002 — Collegare Neon come PostgreSQL production
+# M7-003 — Collegare Neon come PostgreSQL production
 
 - **Stato:** proposta
 - **Milestone:** Milestone 7 — Deployment
 - **Data di apertura:**
 - **Data di chiusura:**
-- **Dipendenze:** M7-001
+- **Dipendenze:** M7-002
 
 ## Contesto
 
@@ -26,7 +26,7 @@ PostgreSQL usato da Laravel.
 - Neon Auth, Data API, Storage, branching applicativo o driver serverless.
 - Render, Upstash, Blueprint e deploy pubblico.
 - Importazione dei dati locali esistenti.
-- Backup e ripristino, trattati da M7-007.
+- Backup e ripristino, trattati da M7-008.
 - Modifiche allo schema o ai modelli applicativi.
 
 ## File modificabili

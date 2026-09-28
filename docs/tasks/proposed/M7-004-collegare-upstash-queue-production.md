@@ -1,10 +1,10 @@
-# M7-003 — Collegare Upstash come queue Redis production
+# M7-004 — Collegare Upstash come queue Redis production
 
 - **Stato:** proposta
 - **Milestone:** Milestone 7 — Deployment
 - **Data di apertura:**
 - **Data di chiusura:**
-- **Dipendenze:** M7-002
+- **Dipendenze:** M7-003
 
 ## Contesto
 
@@ -68,7 +68,7 @@ input locale temporaneo. Verificare `PING` TLS con il client effettivamente
 usato dall'applicazione, avviare Horizon in `production`, accodare un job
 controllato e osservare prenotazione e completamento. Se possibile usare un
 evento applicativo reale; un fixture e' ammesso soltanto se gia' production-safe
-e non richiede autoload dev. La prova finale broadcast resta M7-006.
+e non richiede autoload dev. La prova finale broadcast resta M7-007.
 
 ## Comandi da eseguire
 

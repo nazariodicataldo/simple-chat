@@ -1,10 +1,10 @@
-# M7-004 — Definire il deployment Render con un Blueprint
+# M7-005 — Definire il deployment Render con un Blueprint
 
 - **Stato:** proposta
 - **Milestone:** Milestone 7 — Deployment
 - **Data di apertura:**
 - **Data di chiusura:**
-- **Dipendenze:** M7-003
+- **Dipendenze:** M7-004
 
 ## Contesto
 
@@ -22,7 +22,7 @@ segreti.
 
 ## Fuori scope
 
-- Creazione o sincronizzazione effettiva del servizio Render: M7-005.
+- Creazione o sincronizzazione effettiva del servizio Render: M7-006.
 - Valori reali di Neon, Upstash, APP_KEY o Reverb.
 - GitHub Actions di deploy, registry immagini o immagini prebuildate.
 - Custom domain, preview environment, staging, autoscaling e servizi separati.
@@ -104,7 +104,7 @@ per evitare un riferimento staticamente valido ma inesistente.
 La specifica Blueprint puo' cambiare. Tag, nomi dei campi e disponibilita' del
 piano Free vanno verificati live durante il task. Una validazione statica non
 dimostra che build, migration o runtime remoto funzionino; tale prova appartiene
-a M7-005.
+a M7-006.
 
 ## Verifica manuale
 
@@ -117,7 +117,7 @@ a M7-005.
 
 - Il deployment e' Infrastructure as Code, ma l'avvio resta manuale.
 - Esiste un solo servizio e un solo dominio Render gratuito.
-- I secret vengono inseriti nel Dashboard durante M7-005.
+- I secret vengono inseriti nel Dashboard durante M7-006.
 
 ## File modificati
 

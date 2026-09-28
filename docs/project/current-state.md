@@ -3,13 +3,13 @@
 - **Milestone corrente:** Milestone 7 — Deployment (avviata 2026-09-22).
 - **Ultimo task completato:** M7-001 — Costruire l'immagine production unificata;
   M6-004, M6-005, M6-006 e M6-007 sono stati chiusi con le rispettive evidenze.
-- **Task attivo:** nessuno.
+- **Task attivo:** M7-002 — Isolare il test Echo dalle variabili Compose della CI.
 - **Compilatore frontend:** locale: Turbopack; job GitHub Actions Realtime
   Compose E2E: Webpack. L'override CI usa ora Webpack; il profilo locale resta
   invariato con Turbopack.
-- **Prossimo task suggerito:** M7-002 — Collegare Neon PostgreSQL production;
+- **Prossimo task suggerito:** M7-003 — Collegare Neon PostgreSQL production;
   non avviare task successivi senza una nuova attivazione esplicita.
-- **Ultimo aggiornamento:** 2026-09-26.
+- **Ultimo aggiornamento:** 2026-09-28.
 
 ## Funzionalita' esistenti
 
@@ -215,6 +215,13 @@
   `composer test` ha poi superato 41 test e 213 assertion dopo l'allineamento
   locale dell'origine Sanctum/CORS a `app.simple-chat.test:8443`; Pint, PHPStan
   con limite esplicito, frontend test/lint/typecheck e build host sono riusciti.
+
+- M7-002 ha isolato nel solo test di fallback Echo l'assenza delle variabili
+  pubbliche Reverb tramite tre `vi.stubEnv(..., undefined)` prima dell'import
+  del modulo. La riproduzione RED locale e quella CI-equivalente hanno
+  confermato il difetto; GREEN, suite frontend (16 file, 90 test), lint,
+  typecheck, build Next e cleanup isolato sono riusciti. Il task resta attivo
+  in attesa del workflow GitHub Actions sullo SHA della correzione.
 
 ## Test esistenti
 

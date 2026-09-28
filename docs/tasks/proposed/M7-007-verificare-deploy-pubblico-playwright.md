@@ -1,14 +1,14 @@
-# M7-006 — Verificare il deploy pubblico con Playwright
+# M7-007 — Verificare il deploy pubblico con Playwright
 
 - **Stato:** proposta
 - **Milestone:** Milestone 7 — Deployment
 - **Data di apertura:**
 - **Data di chiusura:**
-- **Dipendenze:** M7-005
+- **Dipendenze:** M7-006
 
 ## Contesto
 
-M7-005 dimostra che il servizio Render costruisce, parte e risponde, ma non che
+M7-006 dimostra che il servizio Render costruisce, parte e risponde, ma non che
 il flusso reale attraversi Neon, Upstash, Horizon, Reverb ed Echo. Lo scenario
 M6-002 offre gia' la prova a due browser context, ma la base URL e alcuni
 messaggi diagnostici sono specifici del Compose locale.

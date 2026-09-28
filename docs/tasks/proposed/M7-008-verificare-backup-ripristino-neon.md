@@ -1,10 +1,10 @@
-# M7-007 — Verificare backup e ripristino di Neon
+# M7-008 — Verificare backup e ripristino di Neon
 
 - **Stato:** proposta
 - **Milestone:** Milestone 7 — Deployment
 - **Data di apertura:**
 - **Data di chiusura:**
-- **Dipendenze:** M7-006
+- **Dipendenze:** M7-007
 
 ## Contesto
 

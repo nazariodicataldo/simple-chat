@@ -1,10 +1,10 @@
-# M7-008 — Verificare il runbook e chiudere la Milestone 7
+# M7-009 — Verificare il runbook e chiudere la Milestone 7
 
 - **Stato:** proposta
 - **Milestone:** Milestone 7 — Deployment
 - **Data di apertura:**
 - **Data di chiusura:**
-- **Dipendenze:** M7-007
+- **Dipendenze:** M7-008
 
 ## Contesto
 
@@ -26,7 +26,7 @@ aperto.
 - Automazione del deploy, custom domain, staging, scaling e monitoraggio esterno.
 - Correzione nascosta di problemi tecnici: un difetto applicativo riapre o
   genera il task tecnico pertinente.
-- Nuovo backup se quello M7-007 e' ancora valido e verificato sullo stesso
+- Nuovo backup se quello M7-008 e' ancora valido e verificato sullo stesso
   database; il task ne controlla evidenza e procedura.
 
 ## File modificabili
@@ -54,10 +54,10 @@ aperto.
   lettura log, health, smoke, rollback del codice e limite delle migration.
 - Ogni comando contiene placeholder riconoscibili e non valori reali.
 - Il commit attivo Render coincide con lo SHA finale scelto; un ultimo deploy
-  manuale e' eseguito se modifiche runtime successive a M7-005 non sono ancora
+  manuale e' eseguito se modifiche runtime successive a M7-006 non sono ancora
   pubblicate.
 - `/up`, `/`, login/registrazione, CRUD realtime a due context e cleanup hanno
-  evidenza fresca. Il backup/restore ha evidenza M7-007 ancora pertinente.
+  evidenza fresca. Il backup/restore ha evidenza M7-008 ancora pertinente.
 - Log e metriche mostrano assenza di OOM/crash durante lo smoke; l'assenza di
   errori viene dichiarata solo sulla finestra e sui log effettivamente letti.
 - Sono documentati i limiti reali: 512 MB, spin-down/cold start, quote, log per
@@ -85,7 +85,7 @@ aggiornare soltanto i documenti dopo la prova.
 - Richieste TLS a `/up` e `/` con readiness osservabile.
 - Playwright production con `PLAYWRIGHT_BASE_URL` esplicita.
 - Lettura log Render della finestra completa del test e metriche disponibili.
-- Controllo dell'evidenza M7-007 e della posizione non versionata del dump.
+- Controllo dell'evidenza M7-008 e della posizione non versionata del dump.
 - Comandi del runbook che sono sicuri e pertinenti alla verifica finale.
 - `git diff --stat`
 - `git diff --check`
@@ -102,7 +102,7 @@ aggiornare soltanto i documenti dopo la prova.
       chiamarli produzione affidabile.
 - [ ] Learning guide, current state, roadmap e changelog sono coerenti.
 - [ ] Non esistono modifiche fuori scope o secret nel diff.
-- [ ] M7 viene marcata completata soltanto se tutti i task M7-001..M7-008 sono
+- [ ] M7 viene marcata completata soltanto se tutti i task M7-001..M7-009 sono
       completati e nessun controllo pertinente fallisce.
 
 ## Rischi e assunzioni

@@ -102,7 +102,7 @@ e il container deve essere verificabile localmente senza servizi cloud.
   il segnale insieme e il kill forzato e' il fallback oltre il limite.
 - Il profilo Horizon `production` conserva la politica gia' verificata in
   locale: un processo, bilanciamento `simple`, queue `default`, tre tentativi,
-  backoff 5 secondi e timeout 60 secondi. M7-003 ne verifichera' poi la
+  backoff 5 secondi e timeout 60 secondi. M7-004 ne verifichera' poi la
   compatibilita' contro Upstash.
 - Il nuovo percorso production non cambia il comportamento locale o CI.
 

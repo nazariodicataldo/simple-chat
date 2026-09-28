@@ -85,6 +85,9 @@ describe("Echo Reverb client", () => {
 
   it("uses the HTTPS browser origin when production Reverb values are not public build variables", async () => {
     vi.stubEnv("NEXT_PUBLIC_REVERB_APP_KEY", "production-public-key")
+    vi.stubEnv("NEXT_PUBLIC_REVERB_HOST", undefined)
+    vi.stubEnv("NEXT_PUBLIC_REVERB_PORT", undefined)
+    vi.stubEnv("NEXT_PUBLIC_REVERB_SCHEME", undefined)
 
     const { getEcho } = await import("@/lib/echo")
 

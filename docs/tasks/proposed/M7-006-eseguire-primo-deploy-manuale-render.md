@@ -1,17 +1,17 @@
-# M7-005 — Eseguire il primo deploy manuale su Render
+# M7-006 — Eseguire il primo deploy manuale su Render
 
 - **Stato:** proposta
 - **Milestone:** Milestone 7 — Deployment
 - **Data di apertura:**
 - **Data di chiusura:**
-- **Dipendenze:** M7-004
+- **Dipendenze:** M7-005
 
 ## Contesto
 
 Il repository dispone dell'immagine production, dei datastore esterni e di un
 Blueprint validato, ma non esiste ancora un servizio pubblico. La prova remota
 deve distinguere build, startup, health e osservazione dei processi; non deve
-anticipare la prova funzionale realtime completa di M7-006.
+anticipare la prova funzionale realtime completa di M7-007.
 
 ## Obiettivo
 
@@ -23,8 +23,8 @@ Free siano coerenti con il contratto M7.
 ## Fuori scope
 
 - Modifica automatica di GitHub, creazione di workflow deploy o auto-deploy.
-- E2E CREATE -> UPDATE -> DELETE a due utenti: M7-006.
-- Backup Neon: M7-007.
+- E2E CREATE -> UPDATE -> DELETE a due utenti: M7-007.
+- Backup Neon: M7-008.
 - Custom domain, staging, preview environment e piani a pagamento.
 - Correzioni improvvisate nel Dashboard non riportate nel Blueprint.
 
@@ -74,7 +74,7 @@ Registrare SHA e run CI completi, poi creare/sincronizzare il servizio dal
 Blueprint. Sorvegliare build e runtime fino a health riuscita. Eseguire richieste
 TLS a `/up` e `/`, ispezionare processi/log/metriche, attendere lo spin-down e
 misurare il successivo risveglio. Eseguire un secondo deploy manuale solo se
-necessario a dimostrare ripetibilita' o una correzione. Non usare M7-005 per
+necessario a dimostrare ripetibilita' o una correzione. Non usare M7-006 per
 dichiarare verificata la queue realtime.
 
 ## Comandi da eseguire
@@ -100,7 +100,7 @@ dichiarare verificata la queue realtime.
       presentarli come SLA.
 - [ ] Non risultano OOM, restart imprevisti o crash silenziosi dei processi.
 - [ ] I log di tutti i processi sono disponibili e non espongono secret.
-- [ ] Queue e realtime restano esplicitamente non verificati fino a M7-006.
+- [ ] Queue e realtime restano esplicitamente non verificati fino a M7-007.
 
 ## Rischi e assunzioni
 
@@ -122,7 +122,7 @@ non aggirati dichiarando il deploy riuscito.
 
 - Il deploy e' manuale dal Dashboard e parte solo dopo CI verde.
 - Il piano Free e il dominio Render predefinito sono vincoli accettati.
-- La disponibilita' HTTP non sostituisce la prova realtime M7-006.
+- La disponibilita' HTTP non sostituisce la prova realtime M7-007.
 
 ## File modificati
 
