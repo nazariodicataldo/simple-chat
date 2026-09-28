@@ -1,12 +1,12 @@
 # ISS-005 — Isolare il test Echo dalle variabili Compose della CI
 
-- **Stato:** pianificata
+- **Stato:** risolta
 - **Priorita':** alta
 - **Area:** frontend, test Echo, GitHub Actions
 - **Data di apertura:** 2026-09-28
-- **Data di chiusura:**
+- **Data di chiusura:** 2026-09-28
 - **Task collegato:** [M7-001](../tasks/completed/M7-001-costruire-immagine-production-unificata.md),
-  [M7-002](../tasks/active/M7-002-isolare-test-echo-variabili-compose-ci.md)
+  [M7-002](../tasks/completed/M7-002-isolare-test-echo-variabili-compose-ci.md)
 - **ADR collegato:** nessuno
 
 ## Contesto
@@ -92,10 +92,10 @@ Compose.
 ## Decisione e scope
 
 L'issue e' emersa dopo il completamento di M7-001, che resta chiuso. M7-002 e'
-il task attivo dedicato alla risoluzione; M7-003 non viene avviato prima della
-chiusura del gate previsto.
+il task completato dedicato alla risoluzione; M7-003 non viene avviato senza
+una nuova attivazione esplicita.
 
-La correzione sara' limitata al setup del caso interessato in
+La correzione e' stata limitata al setup del caso interessato in
 `frontend/lib/echo.test.ts`, rendendo esplicitamente assenti le tre variabili
 prima dell'import del modulo. Restano fuori scope:
 
@@ -109,7 +109,7 @@ introduce una decisione architetturale.
 
 ## Risoluzione applicata
 
-M7-002 attivo esegue la correzione impostando a `undefined`, tramite `vi.stubEnv`,
+M7-002 ha applicato la correzione impostando a `undefined`, tramite `vi.stubEnv`,
 host, porta e schema Reverb nel solo test del fallback same-origin. La modifica
 e' stata applicata prima dell'import di `echo.ts`, senza cambiare le
 aspettative ne' il comportamento applicativo.
@@ -131,8 +131,10 @@ dovranno essere registrati comando o run, ambiente ed esito effettivo.
 
 Verifiche locali eseguite il 2026-09-28: RED isolato 5/6, GREEN isolato 6/6,
 suite frontend 16 file e 90 test, lint, typecheck, build Next e cleanup del
-project `simple-chat-iss005` riusciti. Il workflow remoto non e' ancora stato
-eseguito perche' commit e push restano a carico dell'utente.
+project `simple-chat-iss005` riusciti. Il workflow GitHub Actions `36446125369`
+e' concluso con `success` sullo SHA
+`bb9066d89ab0bdd865f35d365f75d324d84826ca`; i job `backend`, `frontend` e
+`Realtime Compose E2E` sono tutti verdi.
 
 ## File coinvolti o modificati
 
@@ -147,12 +149,10 @@ File corretto:
 
 ## Problemi residui
 
-- Il workflow GitHub Actions non e' ancora stato eseguito sullo SHA della
-  correzione.
-- ISS-005 non puo' passare a `risolta` finche' il gate remoto non e' verde.
+- Nessun problema residuo per ISS-005.
 
 ## Riepilogo finale
 
 Il test del fallback Echo ora isola esplicitamente l'assenza delle variabili
-pubbliche Reverb e supera le verifiche locali CI-equivalenti. ISS-005 resta
-`pianificata` e M7-002 resta attivo fino alla verifica del workflow remoto.
+pubbliche Reverb e supera le verifiche locali CI-equivalenti. Il workflow
+GitHub Actions e' verde sullo stesso SHA della correzione; ISS-005 e' risolta.

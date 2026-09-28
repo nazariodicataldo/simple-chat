@@ -1,9 +1,9 @@
 # M7-002 — Isolare il test Echo dalle variabili Compose della CI
 
-- **Stato:** attivo
+- **Stato:** completato
 - **Milestone:** Milestone 7 — Deployment
 - **Data di apertura:** 2026-09-28
-- **Data di chiusura:**
+- **Data di chiusura:** 2026-09-28
 - **Dipendenze:** [ISS-005](../../issues/ISS-005-isolare-test-echo-variabili-compose-ci.md)
 
 ## Contesto
@@ -138,9 +138,9 @@ correzione richiesta.
       rimossi senza toccare il normale ambiente Compose locale.
 - [x] Nessun file applicativo, Compose, workflow, dipendenza o lockfile viene
       modificato.
-- [ ] Dopo il commit e push dell'utente, tutti i job del workflow GitHub
+- [x] Dopo il commit e push dell'utente, tutti i job del workflow GitHub
       Actions sono verdi sullo stesso SHA.
-- [ ] ISS-005 passa a `risolta` e M7-002 a `completato` soltanto dopo tutte le
+- [x] ISS-005 passa a `risolta` e M7-002 a `completato` soltanto dopo tutte le
       evidenze precedenti; M7-003 non viene avviato prima della chiusura.
 
 ## Rischi e assunzioni
@@ -169,8 +169,8 @@ isolato e la pagina del workflow GitHub Actions sullo SHA corretto.
 
 ## Decisioni emerse
 
-- M7-002 e' stato attivato il 2026-09-28 e resta in `active/` finche' il gate
-  GitHub Actions non sara' verificato sullo SHA della correzione.
+- M7-002 e' stato attivato e completato il 2026-09-28 dopo la verifica del
+  workflow GitHub Actions sullo SHA della correzione.
 - La soluzione e' gia' individuata e non lascia aperte alternative:
   `vi.stubEnv(..., undefined)` sulle tre variabili nel solo test interessato.
 - La riproduzione con il profilo locale viene registrata come evidenza
@@ -206,18 +206,19 @@ isolato e la pagina del workflow GitHub Actions sullo SHA corretto.
   completati.
 - Cleanup: riuscito con rimozione di rete e volumi del solo progetto
   `simple-chat-iss005`.
-- Workflow GitHub Actions sullo SHA della correzione: non ancora eseguito;
-  commit e push restano a carico dell'utente.
+- Workflow GitHub Actions `36446125369`: concluso con `success` sullo SHA
+  `bb9066d89ab0bdd865f35d365f75d324d84826ca`; `backend`, `frontend` e
+  `Realtime Compose E2E` sono tutti `completed/success`.
 
 ## Problemi residui
 
-- M7-002 non puo' essere spostato in `completed/` finche' il workflow GitHub
-  Actions non sara' verde sullo stesso SHA.
-- ISS-005 resta `pianificata` per lo stesso gate remoto.
+- Nessun problema residuo nello scope di M7-002; M7-003 resta da attivare
+  separatamente.
 
 ## Riepilogo finale
 
 La precondizione del test Echo e' ora isolata nel solo caso di fallback con
 tre `vi.stubEnv(..., undefined)` prima dell'import di `echo.ts`. Le verifiche
-locali CI-equivalenti sono riuscite; il gate remoto resta da eseguire dopo il
-commit e push dell'utente.
+locali CI-equivalenti e il workflow GitHub Actions sullo SHA
+`bb9066d89ab0bdd865f35d365f75d324d84826ca` sono riusciti; M7-002 e' completato
+e M7-003 non e' stato avviato.

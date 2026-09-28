@@ -1,9 +1,10 @@
 # Stato corrente
 
 - **Milestone corrente:** Milestone 7 — Deployment (avviata 2026-09-22).
-- **Ultimo task completato:** M7-001 — Costruire l'immagine production unificata;
-  M6-004, M6-005, M6-006 e M6-007 sono stati chiusi con le rispettive evidenze.
-- **Task attivo:** M7-002 — Isolare il test Echo dalle variabili Compose della CI.
+- **Ultimo task completato:** M7-002 — Isolare il test Echo dalle variabili Compose
+  della CI; M7-001 — Costruire l'immagine production unificata; M6-004,
+  M6-005, M6-006 e M6-007 sono stati chiusi con le rispettive evidenze.
+- **Task attivo:** nessuno.
 - **Compilatore frontend:** locale: Turbopack; job GitHub Actions Realtime
   Compose E2E: Webpack. L'override CI usa ora Webpack; il profilo locale resta
   invariato con Turbopack.
@@ -220,8 +221,9 @@
   pubbliche Reverb tramite tre `vi.stubEnv(..., undefined)` prima dell'import
   del modulo. La riproduzione RED locale e quella CI-equivalente hanno
   confermato il difetto; GREEN, suite frontend (16 file, 90 test), lint,
-  typecheck, build Next e cleanup isolato sono riusciti. Il task resta attivo
-  in attesa del workflow GitHub Actions sullo SHA della correzione.
+  typecheck, build Next e cleanup isolato sono riusciti. Il workflow GitHub
+  Actions `36446125369` ha concluso con successo i job `backend`, `frontend` e
+  `Realtime Compose E2E` sullo SHA `bb9066d89ab0bdd865f35d365f75d324d84826ca`.
 
 ## Test esistenti
 

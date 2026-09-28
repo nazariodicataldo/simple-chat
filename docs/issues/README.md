@@ -32,4 +32,4 @@ l'issue, occorre adottare una decisione architetturale significativa.
 | [ISS-002](ISS-002-eliminare-flash-cache-messaggi-dopo-logout-login.md) | risolta | Eliminare il flash della cache messaggi dopo logout/login | M2-008, M2-009 |
 | [ISS-003](ISS-003-rendere-fixture-reverb-indipendente-ordine-test.md) | risolta | Rendere il fixture Reverb indipendente dall'ordine dei feature test | M4-002, M4-003 |
 | [ISS-004](ISS-004-caricare-autore-risposte-create-update-message.md) | risolta | Caricare l'autore nelle risposte CREATE e UPDATE Message | M4-004, M4-005 |
-| [ISS-005](ISS-005-isolare-test-echo-variabili-compose-ci.md) | pianificata | Isolare il test Echo dalle variabili Compose della CI | M7-001, M7-002 |
+| [ISS-005](ISS-005-isolare-test-echo-variabili-compose-ci.md) | risolta | Isolare il test Echo dalle variabili Compose della CI | M7-001, M7-002 |
