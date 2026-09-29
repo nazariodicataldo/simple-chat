@@ -212,8 +212,8 @@ isolato e la pagina del workflow GitHub Actions sullo SHA corretto.
 
 ## Problemi residui
 
-- Nessun problema residuo nello scope di M7-002; M7-003 resta da attivare
-  separatamente.
+- Nessun problema residuo nello scope di M7-002; alla sua chiusura, il task
+  Neon M7-003 era ancora separato e non rientrava nello scope.
 
 ## Riepilogo finale
 

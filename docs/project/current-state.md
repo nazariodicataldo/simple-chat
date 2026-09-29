@@ -1,16 +1,17 @@
 # Stato corrente
 
 - **Milestone corrente:** Milestone 7 — Deployment (avviata 2026-09-22).
-- **Ultimo task completato:** M7-002 — Isolare il test Echo dalle variabili Compose
-  della CI; M7-001 — Costruire l'immagine production unificata; M6-004,
+- **Ultimo task completato:** M7-003 — Collegare Neon come PostgreSQL production;
+  M7-002 — Isolare il test Echo dalle variabili Compose della CI; M7-001 —
+  Costruire l'immagine production unificata; M6-004,
   M6-005, M6-006 e M6-007 sono stati chiusi con le rispettive evidenze.
 - **Task attivo:** nessuno.
 - **Compilatore frontend:** locale: Turbopack; job GitHub Actions Realtime
   Compose E2E: Webpack. L'override CI usa ora Webpack; il profilo locale resta
   invariato con Turbopack.
-- **Prossimo task suggerito:** M7-003 — Collegare Neon PostgreSQL production;
+- **Prossimo task suggerito:** M7-004 — Collegare Upstash Redis production;
   non avviare task successivi senza una nuova attivazione esplicita.
-- **Ultimo aggiornamento:** 2026-09-28.
+- **Ultimo aggiornamento:** 2026-09-29.
 
 ## Funzionalita' esistenti
 
@@ -224,6 +225,14 @@
   typecheck, build Next e cleanup isolato sono riusciti. Il workflow GitHub
   Actions `36446125369` ha concluso con successo i job `backend`, `frontend` e
   `Realtime Compose E2E` sullo SHA `bb9066d89ab0bdd865f35d365f75d324d84826ca`.
+
+- M7-003 ha completato la verifica preliminare read-only dell'immagine
+  production: bundle CA leggibile, `libpq5` 17.11 e `pdo_pgsql` presenti; il
+  percorso Laravel/PDO per `DB_URL`, `sslmode` e `sslrootcert` e' stato
+  verificato staticamente. La prova reale Neon pooled ha poi superato due
+  migration, query PostgreSQL 17.11, persistenza dopo compute `SUSPENDED`,
+  riconnessione da container nuovo e cleanup selettivo; il file env `600` e'
+  stato rimosso e non restano container di prova.
 
 ## Test esistenti
 

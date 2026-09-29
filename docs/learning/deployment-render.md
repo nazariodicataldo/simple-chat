@@ -142,6 +142,54 @@ di vita effettivo del provider. Il fatto che il container passi lo smoke locale
 non dimostra ancora una chat pubblica disponibile o una recovery automatica
 remota.
 
+## Contratto Neon PostgreSQL di M7-003
+
+M7-003 ha collegato temporaneamente la stessa immagine production a Neon prima
+del deploy Render. Le regole seguenti conservano il contratto operativo usato
+per la prova; i risultati verificati sono riportati nel task completato.
+
+Il progetto Neon usa il piano Free e Francoforte. PostgreSQL 17 conserva la
+parita' con Compose quando resta selezionabile; in caso contrario si accetta
+soltanto una versione dichiarata stabile dal provider, registrando la
+divergenza senza aggiornare automaticamente l'ambiente locale.
+
+Laravel continua a usare PDO PostgreSQL senza SDK Neon. La prima verifica usa
+la connection string pooled sia per le migration sia per le normali query. Il
+pooler riduce il numero di connessioni PostgreSQL effettive, ma introduce un
+componente in piu' nel percorso: se le migration falliscono soltanto sul pooled,
+il task resta aperto e la scelta viene rivalutata sull'errore reale. Non si
+passa silenziosamente al diretto, che resta pianificato per `pg_dump`.
+
+La cifratura non basta da sola a identificare il server. `sslmode=require`
+impone TLS, ma il risultato finale richiede `sslmode=verify-full` e una CA
+attendibile del container tramite `sslrootcert=system` o il percorso esplicito
+del bundle. In questo modo `libpq` verifica anche certificato e hostname Neon.
+La presenza del bundle e il supporto della versione `libpq` vanno provati
+prima della connessione; il Dockerfile cambia soltanto se manca davvero un
+archivio CA utilizzabile.
+
+La URL contiene una password. Vive quindi in un file env temporaneo fuori dal
+repository, leggibile soltanto dal proprietario, e non compare nella riga di
+comando o negli output conservati. Docker copia le variabili nei metadati del
+container: cancellare il file non basta finche' esiste ancora un container,
+anche arrestato. Il cleanup rimuove prima tutti i container della prova e poi
+il file env; un `docker inspect` completo non fa parte delle verifiche perche'
+stamperebbe la sezione delle variabili.
+
+Per isolare PostgreSQL da Redis, Horizon e Reverb, la prova usa container
+one-shot dell'immagine M7-001 con entrypoint sostituito soltanto per eseguire
+Laravel. Le migration vengono lanciate due volte. Un solo utente sintetico con
+identificatore univoco viene poi creato tramite Laravel, senza importare dati
+locali. Dopo la rimozione del primo container si attende che il Dashboard Neon
+mostri il compute sospeso; un container nuovo deve rileggere il record e infine
+eliminarlo selettivamente. Il progetto, lo schema e la cronologia delle
+migration restano disponibili per i task di deploy successivi.
+
+Una sola credenziale Neon dedicata a Simple Chat serve sia le migration sia il
+runtime. E' una scelta semplice coerente con l'entrypoint attuale, ma amplia i
+privilegi disponibili all'applicazione: separare ruolo migration e ruolo
+runtime resta un possibile hardening futuro, non parte di M7-003.
+
 ## Esercizio
 
 Spiega con parole tue perche' `/up` non prova Reverb e perche' il browser usa
@@ -159,3 +207,7 @@ consecutivi.
 - [Laravel: proxy fidati](https://laravel.com/docs/requests#configuring-trusted-proxies)
 - [Next.js: environment variables](https://nextjs.org/docs/app/guides/environment-variables)
 - [Render: deploy di servizi Docker](https://render.com/docs/docker)
+- [Neon: regioni](https://neon.com/docs/manage/regions)
+- [Neon: connection pooling](https://neon.com/docs/connect/connection-pooling)
+- [Neon: gestione dei compute e scale-to-zero](https://neon.com/docs/manage/endpoints)
+- [Neon: verifica TLS con le CA di sistema](https://neon.com/blog/avoid-mitm-attacks-with-psql-postgres-16)
