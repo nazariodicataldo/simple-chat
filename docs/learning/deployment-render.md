@@ -190,6 +190,57 @@ runtime. E' una scelta semplice coerente con l'entrypoint attuale, ma amplia i
 privilegi disponibili all'applicazione: separare ruolo migration e ruolo
 runtime resta un possibile hardening futuro, non parte di M7-003.
 
+## Contratto Upstash Redis di M7-004
+
+M7-004 ha verificato Upstash prima del deploy Render. Esiste un solo database
+permanente dedicato a Simple Chat, piano Free, provider AWS e regione
+Francoforte. Non e' stato usato il database rapido che scade dopo 72 ore.
+Replica globale, eviction e aggiornamento automatico a un piano a pagamento
+sono disabilitati. Se la quota viene raggiunta, una scrittura deve fallire in
+modo visibile invece di eliminare casualmente un job.
+
+Laravel usa `phpredis` e una sola `REDIS_URL` con schema `rediss://`: e' il
+protocollo Redis nativo protetto da TLS, non l'API REST Upstash. Endpoint e
+password restano nello stesso secret per evitare copie incoerenti. Le variabili
+non sensibili selezionano la connessione Redis, il database logico `0` e la
+queue `default`. Nel file passato a `docker run --env-file` le URL non hanno
+virgolette esterne: quel parser le conserverebbe nel valore e renderebbe lo
+schema non valido, diversamente da parser dotenv che possono rimuoverle.
+
+Upstash ha due responsabilita': conservare i job della queue `default` e i
+metadati minimi di Horizon. Non e' la cache generale di Laravel.
+`CACHE_STORE=database` continua a usare Neon anche per i segnali operativi di
+Horizon e Reverb. Non servono quindi un secondo Redis o un secondo database
+logico Redis. PostgreSQL resta inoltre l'unica fonte persistente dei messaggi.
+
+Horizon resta un supervisore semplice: un processo, bilanciamento `simple`, tre
+tentativi massimi, backoff di 5 secondi e timeout di 60 secondi. Snapshot,
+monitoraggio aggiuntivo e dashboard non sono criteri di M7-004. Il piano Free
+dichiara una quota mensile di comandi, ma il task non ha eseguito una proiezione
+artificiale del consumo inattivo; il consumo reale verra' osservato dopo il
+deploy senza promettere che la quota basti per ogni carico.
+
+La prova ha usato due container separati della stessa immagine production. Il
+primo ha avviato soltanto Laravel e, tramite Tinker, ha accodato tre
+`QueuedCommand` numerati. E' stato poi rimosso lasciando i job in Upstash. Il
+secondo ha avviato soltanto Horizon con `APP_ENV=production`: Nginx, Next,
+Reverb, Supervisor e PostgreSQL locale non sono partiti. Entrambi hanno usato
+Neon e Upstash remoti tramite un file env temporaneo `600` fuori dal repository.
+
+Laravel/PhpRedis ha restituito `REDIS_PING_OK`. Prima e dopo la rimozione del
+produttore, Upstash conteneva tre job pendenti e nessun marker gia' eseguito.
+Horizon ha poi registrato tre sequenze `RUNNING`/`DONE`. I tre ID sono risultati
+`completed` con `attempts = 1`, nessun fallimento, contatore `3`, ordine
+`[1, 2, 3]` e queue vuota. Questa e' un'osservazione del caso normale, non una
+garanzia exactly-once: un worker che termina dopo l'effetto del job ma prima
+della conferma a Redis puo' causare una nuova esecuzione.
+
+Il cleanup ha eliminato selettivamente contatore e lista, senza `FLUSHDB`, poi
+ha rimosso tutti i container prima di cancellare il file con i secret. I
+normali metadati Horizon seguono la retention gia' configurata. Con il Docker
+CLI usato nella prova, `docker stop` accetta ancora `--time` ma lo segnala come
+deprecato: i comandi successivi devono usare `--timeout`.
+
 ## Esercizio
 
 Spiega con parole tue perche' `/up` non prova Reverb e perche' il browser usa
@@ -211,3 +262,7 @@ consecutivi.
 - [Neon: connection pooling](https://neon.com/docs/connect/connection-pooling)
 - [Neon: gestione dei compute e scale-to-zero](https://neon.com/docs/manage/endpoints)
 - [Neon: verifica TLS con le CA di sistema](https://neon.com/blog/avoid-mitm-attacks-with-psql-postgres-16)
+- [Upstash: prezzi e limiti Redis](https://upstash.com/pricing/redis)
+- [Upstash: compatibilita' Redis](https://upstash.com/docs/redis/overall/compatibility)
+- [Upstash: eviction](https://upstash.com/docs/redis/features/eviction)
+- [Upstash: integrazione Laravel](https://upstash.com/docs/redis/quickstarts/laravel)

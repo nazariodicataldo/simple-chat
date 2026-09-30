@@ -1,17 +1,18 @@
 # Stato corrente
 
 - **Milestone corrente:** Milestone 7 — Deployment (avviata 2026-09-22).
-- **Ultimo task completato:** M7-003 — Collegare Neon come PostgreSQL production;
-  M7-002 — Isolare il test Echo dalle variabili Compose della CI; M7-001 —
-  Costruire l'immagine production unificata; M6-004,
+- **Ultimo task completato:** M7-004 — Collegare Upstash come queue Redis
+  production; M7-003 — Collegare Neon come PostgreSQL production; M7-002 —
+  Isolare il test Echo dalle variabili Compose della CI; M7-001 — Costruire
+  l'immagine production unificata; M6-004,
   M6-005, M6-006 e M6-007 sono stati chiusi con le rispettive evidenze.
 - **Task attivo:** nessuno.
 - **Compilatore frontend:** locale: Turbopack; job GitHub Actions Realtime
   Compose E2E: Webpack. L'override CI usa ora Webpack; il profilo locale resta
   invariato con Turbopack.
-- **Prossimo task suggerito:** M7-004 — Collegare Upstash Redis production;
-  non avviare task successivi senza una nuova attivazione esplicita.
-- **Ultimo aggiornamento:** 2026-09-29.
+- **Prossimo task suggerito:** M7-005 — Definire il deployment Render con un
+  Blueprint; non avviare task successivi senza una nuova attivazione esplicita.
+- **Ultimo aggiornamento:** 2026-09-30.
 
 ## Funzionalita' esistenti
 
@@ -233,6 +234,15 @@
   migration, query PostgreSQL 17.11, persistenza dopo compute `SUSPENDED`,
   riconnessione da container nuovo e cleanup selettivo; il file env `600` e'
   stato rimosso e non restano container di prova.
+
+- M7-004 ha creato un solo Upstash Free permanente in AWS Francoforte, con
+  singola regione, TLS, eviction e auto-upgrade disabilitati. Laravel/PhpRedis
+  ha superato il `PING`; la cache Laravel e' rimasta su Neon. Tre
+  `QueuedCommand` sono sopravvissuti alla rimozione del container produttore e
+  un container nuovo con il solo Horizon production li ha completati in ordine
+  `[1, 2, 3]`, ciascuno al primo tentativo, con contatore `3`, zero fallimenti e
+  queue vuota. Il cleanup selettivo ha rimosso marker, container e file env
+  temporaneo senza `FLUSHDB`; non sono state rilevate credenziali nel repository.
 
 ## Test esistenti
 
