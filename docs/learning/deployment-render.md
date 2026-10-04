@@ -241,6 +241,89 @@ normali metadati Horizon seguono la retention gia' configurata. Con il Docker
 CLI usato nella prova, `docker stop` accetta ancora `--time` ma lo segnala come
 deprecato: i comandi successivi devono usare `--timeout`.
 
+## Contratto Blueprint Render di M7-005
+
+M7-005 ha aggiunto `render.yaml` come descrizione versionata del servizio, ma
+non ha creato ne' sincronizzato risorse Render. La validazione e la build locale
+non dimostrano un deploy remoto, che appartiene a M7-006.
+
+Un Blueprint e' Infrastructure as Code: il repository descrive la forma del
+servizio, mentre Render la interpreta. Il file contiene una sola risorsa, il
+web service Docker Free `simple-chat-nazariodicataldo` in regione
+`frankfurt`. Neon e Upstash restano provider esterni e compaiono soltanto
+attraverso le rispettive URL runtime. Non servono progetti, environment group,
+worker separati, database Render, custom domain o autoscaling.
+
+Automazione del servizio e sincronizzazione del Blueprint sono due controlli
+diversi. `autoDeployTrigger: off` evita un deploy a ogni push; `Auto Sync: No`
+andra' impostato nel Dashboard durante M7-006 per evitare che una modifica al
+file riconfiguri automaticamente il servizio. Anche preview environment e PR
+preview restano disabilitate: consumerebbero build e istanze, e le variabili
+`sync: false` non verrebbero propagate automaticamente. Il sottodominio
+`onrender.com` resta invece esplicitamente abilitato ed e' l'unico ingresso
+pubblico.
+
+Render assegna al web service `RENDER_EXTERNAL_URL` e
+`RENDER_EXTERNAL_HOSTNAME`. Il Blueprint le autoreferenziera' tramite
+`fromService`: URL completo per `APP_URL`, `FRONTEND_URL` e CORS; solo hostname
+per Sanctum e origini Reverb. In questo modo il dominio effettivo e' la sola
+fonte di verita', anche se il sottodominio assegnato non coincide con quello
+previsto dal nome del servizio.
+
+Il browser non riceve un URL API o Reverb production. Axios usa percorsi
+relativi ed Echo ricava host, porta e TLS da `window.location`; soltanto la
+chiave pubblica `NEXT_PUBLIC_REVERB_APP_KEY` entra nel bundle durante
+`next build`. `FRONTEND_URL` e `BACKEND_INTERNAL_URL` sono invece server-only:
+la prima ricostruisce `Origin` e `Referer` pubblici nelle richieste SSR, la
+seconda viene derivata dall'entrypoint per raggiungere Nginx su loopback.
+
+Questa distinzione chiarisce build time e runtime. Durante il build dipendenze
+e sorgenti producono artefatti immutabili; una variabile `NEXT_PUBLIC_*` usata
+dal client viene incorporata nel JavaScript e richiede un nuovo build per
+cambiare. A runtime Laravel, Next server, Horizon e Reverb leggono invece
+configurazione e credenziali del container. `PORT` arriva da Render, mentre
+host, porte e scheme loopback restano responsabilita' dell'immagine: duplicarli
+nel Blueprint creerebbe due fonti di verita'.
+
+`APP_KEY`, `DB_URL` e `REDIS_URL` sono gli unici placeholder `sync: false`:
+il file dichiara i nomi, Render chiede i valori nella prima creazione e li
+conserva nelle sync successive. La chiave Laravel va generata con un container
+temporaneo e `php artisan key:generate --show`. Render generera' invece una
+sola volta `REVERB_APP_SECRET` tramite `generateValue: true`. ID e chiave
+Reverb non sono secret: `simple-chat-production` e
+`simple-chat-production-key` saranno versionati, e la stessa chiave pubblica
+servira' backend e browser.
+
+Neon resta la fonte di database, sessioni, cache e job falliti. Il cookie di
+sessione e' host-only perche' `SESSION_DOMAIN` resta assente; `Secure` limita
+l'invio a HTTPS, `HttpOnly` impedisce a JavaScript di leggere il cookie di
+sessione e `SameSite=Lax` conserva il flusso same-origin. Upstash continua a
+contenere soltanto queue `default` e metadati Horizon. La Dashboard `/horizon`
+resta chiusa: l'assenza di una allowlist non ferma il processo worker, mentre
+la registrazione pubblica e senza verifica email non rende
+`admin@admin.com` un'identita' amministrativa sicura in produzione.
+
+I log Laravel useranno `stderr` a livello `info`. `/up` rimane una liveness
+Nginx -> PHP-FPM -> Laravel e non prova Next, Neon, Upstash, Horizon o Reverb.
+Il servizio Free mantiene il default Render di 30 secondi allo shutdown; il
+Blueprint non imposta `maxShutdownDelaySeconds` perche' il CLI lo rifiuta sul
+piano Free. Questo e' un limite operativo da verificare nel deploy, non una
+garanzia dei 65 secondi concessi localmente a Horizon.
+
+Il piano del servizio sara' `free`, ma il solo campo YAML non impedisce
+eventuali addebiti oltre quota quando esiste un metodo di pagamento. M7-006
+deve quindi verificare un workspace Hobby senza metodo di pagamento. Il
+contratto zero euro accetta che Render sospenda il servizio o nuovi build fino
+al periodo successivo.
+
+La verifica M7-005 resta statica e non crea risorse: il Render CLI corrente
+valida sintassi YAML e schema Blueprint con `render blueprints validate
+render.yaml`, oltre a query programmatiche del contratto, scansione secret e
+build del Dockerfile referenziato. I risultati sono registrati nel task; nessun
+controllo remoto dimostra una risorsa Render esistente. Se un controllo
+dimostra un difetto fuori scope, si documentano errore e probabile causa in un
+task issue, poi si apre un task correttivo rinumerando i pending.
+
 ## Esercizio
 
 Spiega con parole tue perche' `/up` non prova Reverb e perche' il browser usa
@@ -258,6 +341,10 @@ consecutivi.
 - [Laravel: proxy fidati](https://laravel.com/docs/requests#configuring-trusted-proxies)
 - [Next.js: environment variables](https://nextjs.org/docs/app/guides/environment-variables)
 - [Render: deploy di servizi Docker](https://render.com/docs/docker)
+- [Render: Infrastructure as Code con Blueprint](https://render.com/docs/infrastructure-as-code)
+- [Render: riferimento Blueprint YAML](https://render.com/docs/blueprint-spec)
+- [Render: variabili d'ambiente e secret](https://render.com/docs/configure-environment-variables)
+- [Render: limiti dei servizi Free](https://render.com/docs/free)
 - [Neon: regioni](https://neon.com/docs/manage/regions)
 - [Neon: connection pooling](https://neon.com/docs/connect/connection-pooling)
 - [Neon: gestione dei compute e scale-to-zero](https://neon.com/docs/manage/endpoints)

@@ -1,7 +1,8 @@
 # Stato corrente
 
 - **Milestone corrente:** Milestone 7 — Deployment (avviata 2026-09-22).
-- **Ultimo task completato:** M7-004 — Collegare Upstash come queue Redis
+- **Ultimo task completato:** M7-005 — Definire il deployment Render con un
+  Blueprint; M7-004 — Collegare Upstash come queue Redis
   production; M7-003 — Collegare Neon come PostgreSQL production; M7-002 —
   Isolare il test Echo dalle variabili Compose della CI; M7-001 — Costruire
   l'immagine production unificata; M6-004,
@@ -10,9 +11,9 @@
 - **Compilatore frontend:** locale: Turbopack; job GitHub Actions Realtime
   Compose E2E: Webpack. L'override CI usa ora Webpack; il profilo locale resta
   invariato con Turbopack.
-- **Prossimo task suggerito:** M7-005 — Definire il deployment Render con un
-  Blueprint; non avviare task successivi senza una nuova attivazione esplicita.
-- **Ultimo aggiornamento:** 2026-09-30.
+- **Prossimo task suggerito:** M7-006 — Creare e sincronizzare il servizio
+  Render; non attivarlo senza una nuova autorizzazione esplicita.
+- **Ultimo aggiornamento:** 2026-10-04.
 
 ## Funzionalita' esistenti
 
@@ -243,6 +244,15 @@
   `[1, 2, 3]`, ciascuno al primo tentativo, con contatore `3`, zero fallimenti e
   queue vuota. Il cleanup selettivo ha rimosso marker, container e file env
   temporaneo senza `FLUSHDB`; non sono state rilevate credenziali nel repository.
+
+- M7-005, completato il 2026-10-04, ha aggiunto il solo Blueprint Docker Free
+  `simple-chat-nazariodicataldo` in Francoforte, collegato a `master`, con
+  deploy su push e preview disabilitati, sottodominio Render attivo,
+  autoreferenze pubbliche e soli `APP_KEY`, `DB_URL` e `REDIS_URL` manuali.
+  La build locale dell'immagine indicata, le query contrattuali e la
+  validazione Render CLI sono riuscite; il servizio Free mantiene il default
+  Render di 30 secondi per lo shutdown. Non e' stata creata alcuna risorsa
+  Render; la creazione e sincronizzazione effettiva restano a M7-006.
 
 ## Test esistenti
 
