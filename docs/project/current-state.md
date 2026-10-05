@@ -1,7 +1,8 @@
 # Stato corrente
 
 - **Milestone corrente:** Milestone 7 — Deployment (avviata 2026-09-22).
-- **Ultimo task completato:** M7-005 — Definire il deployment Render con un
+- **Ultimo task completato:** M7-006 — Verificare e completare il primo deploy
+  manuale su Render; M7-005 — Definire il deployment Render con un
   Blueprint; M7-004 — Collegare Upstash come queue Redis
   production; M7-003 — Collegare Neon come PostgreSQL production; M7-002 —
   Isolare il test Echo dalle variabili Compose della CI; M7-001 — Costruire
@@ -11,9 +12,9 @@
 - **Compilatore frontend:** locale: Turbopack; job GitHub Actions Realtime
   Compose E2E: Webpack. L'override CI usa ora Webpack; il profilo locale resta
   invariato con Turbopack.
-- **Prossimo task suggerito:** M7-006 — Creare e sincronizzare il servizio
-  Render; non attivarlo senza una nuova autorizzazione esplicita.
-- **Ultimo aggiornamento:** 2026-10-04.
+- **Prossimo task suggerito:** M7-007 — Verificare queue e realtime sul deploy
+  Render completato; non e' stato anticipato durante M7-006.
+- **Ultimo aggiornamento:** 2026-10-05.
 
 ## Funzionalita' esistenti
 
@@ -251,8 +252,17 @@
   autoreferenze pubbliche e soli `APP_KEY`, `DB_URL` e `REDIS_URL` manuali.
   La build locale dell'immagine indicata, le query contrattuali e la
   validazione Render CLI sono riuscite; il servizio Free mantiene il default
-  Render di 30 secondi per lo shutdown. Non e' stata creata alcuna risorsa
-  Render; la creazione e sincronizzazione effettiva restano a M7-006.
+  Render di 30 secondi per lo shutdown. Alla chiusura di M7-005 non era stata
+  creata alcuna risorsa Render; creazione e sincronizzazione effettive erano
+  state lasciate a M7-006.
+
+- M7-006, completato il 2026-10-05, ha verificato il primo sync Render e il
+  redeploy correttivo sullo SHA `00d91f3ac1cbe6c5a3a443f2425a54e56b75a200`.
+  Il servizio Docker Free resta a Francoforte, con workspace Hobby senza carta,
+  `Auto Sync: No` e `Auto-Deploy: Off`. La nuova `APP_KEY` production e le URL
+  normalizzate sono state applicate insieme; migration, cinque processi,
+  HTTPS, login/logout, cold/warm start, metriche e log sanitizzati sono
+  verificati. Queue e realtime restano a M7-007.
 
 ## Test esistenti
 

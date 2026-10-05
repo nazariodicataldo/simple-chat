@@ -324,6 +324,89 @@ controllo remoto dimostra una risorsa Render esistente. Se un controllo
 dimostra un difetto fuori scope, si documentano errore e probabile causa in un
 task issue, poi si apre un task correttivo rinumerando i pending.
 
+## Primo sync Render e piano di completamento M7-006
+
+Il confine storico e' importante: alla chiusura di M7-005 non esistevano
+risorse Render. Il primo sync e' stato poi eseguito il 2026-10-04 sul commit
+`00d91f3ac1cbe6c5a3a443f2425a54e56b75a200`. Render lo mostra `Deployed` con
+un solo servizio Docker `simple-chat-nazariodicataldo` a Francoforte; il run
+GitHub Actions `37208495710` dello stesso SHA e' concluso con successo. Questa
+evidenza prova creazione e sync, non ancora la stabilita' completa del runtime.
+
+`Auto-Deploy` del servizio e `Auto Sync` del Blueprint risolvono problemi
+diversi. Il primo decide se un nuovo commit avvia un deploy; il secondo decide
+se una modifica a `render.yaml` viene applicata alle risorse. Il servizio ha
+gia' `Auto-Deploy: Off`, mentre M7-006 deve portare `Auto Sync` da `Yes` a `No`:
+solo con entrambi disabilitati codice e infrastruttura restano manuali.
+
+La prima configurazione ha riusato su Render la `APP_KEY` locale. M7-006 la
+ruota prima delle prove finali con una chiave generata da Laravel e dedicata
+alla produzione. La chiave non viene condivisa in chat, salvata in un file o
+copiata in `APP_PREVIOUS_KEYS`. La rotazione termina le sessioni esistenti, ma
+non elimina i due account di prova o i loro messaggi; uno di questi account
+servira' soltanto per un login/logout senza CRUD.
+
+Le URL Neon e Upstash sono state inserite nel Dashboard con virgolette esterne.
+Laravel 13 rimuove una coppia di virgolette quando legge un valore tramite
+`env()`, coerentemente con l'accesso Neon gia' osservato: non e' quindi corretto
+descriverle come causa dimostrata di un errore. Verranno comunque normalizzate
+durante lo stesso aggiornamento runtime della chiave, mantenendo invariati la
+URL Neon pooled con `sslmode=verify-full` e `sslrootcert` e lo schema Upstash
+`rediss://`.
+
+Il Dashboard offre tre salvataggi diversi. Per questi valori runtime basta
+`Save and deploy`: il servizio riusa la build iniziale dello stesso SHA e avvia
+un nuovo container con il nuovo ambiente. Il primo deploy conserva quindi la
+prova del build da lockfile; il secondo deve fornire la prova di migration e
+avvio corretti. Ricostruire la stessa immagine non aggiunge evidenza, salvo un
+nuovo commit o un difetto di build realmente osservato.
+
+Una liveness verde non basta per il container unificato. I log devono mostrare
+Nginx, Next, PHP-FPM, Horizon e Reverb in `RUNNING` oltre `startsecs=10`, senza
+`BACKOFF`, `FATAL`, restart inattesi o OOM. `/up` prova Laravel e `/` prova Next;
+login e logout verificano il minimo percorso cookie/sessione verso Neon.
+Horizon e Reverb restano invece osservati soltanto come processi stabili:
+queue, WebSocket e aggiornamento fra due utenti appartengono a M7-007.
+
+La prova cold start richiede vera inattivita'. Le schede della chat vanno
+chiuse per eliminare anche il traffico WebSocket; dopo almeno 20 minuti e, se
+disponibile, lo stato di spin-down, la prima richiesta TLS a `/up` viene
+collegata ai log del nuovo avvio e confrontata con una seconda richiesta warm.
+I tempi e la memoria del grafico Render sono osservazioni, non SLA.
+
+I log completi restano nel Dashboard. Nel repository entrano soltanto SHA,
+run CI, sync/deploy ID, data, codici HTTP, tempi, memoria approssimativa, stati
+dei processi e brevi messaggi sanitizzati. Se un log espone una credenziale, la
+verifica si ferma: oscurare il testo non basta, perche' il valore va ruotato nel
+provider prima di un nuovo deploy.
+
+Dopo M7-006 il servizio resta configurato per M7-007 con entrambe le
+automazioni disabilitate. Non viene aggiunto un keep-alive: il piano Free puo'
+eseguire normalmente lo spin-down e recuperare alla richiesta successiva.
+
+## Evidenze del primo deploy M7-006
+
+Il primo sync e il redeploy correttivo sono rimasti sullo SHA
+`00d91f3ac1cbe6c5a3a443f2425a54e56b75a200`. Il servizio Docker Free in
+Francoforte e' stato lasciato con workspace Hobby senza carta, `Auto Sync: No`
+e `Auto-Deploy: Off`. La rotazione della `APP_KEY` production e la
+normalizzazione delle virgolette esterne di `DB_URL` e `REDIS_URL` sono state
+salvate insieme tramite `Save and deploy`; il redeploy correttivo
+`dep-db210i3bc2fs73eqotv0` e' risultato live con trigger di aggiornamento
+ambiente e durata osservata di circa 40,7 secondi.
+
+I log hanno mostrato migration completata e Nginx, Next, PHP-FPM, Horizon e
+Reverb in `RUNNING` oltre `startsecs=10`, senza `BACKOFF`, `FATAL`, OOM,
+restart imprevisti o pattern sensibili nei controlli filtrati. `/up` e `/`
+hanno restituito `200` in HTTPS; login e logout sono riusciti prima e dopo la
+rotazione senza modificare i messaggi. Dopo oltre 20 minuti di inattivita',
+`/up` ha risposto in 32,651 secondi e la richiesta warm successiva in 0,419
+secondi. Le metriche hanno mostrato un picco RAM di circa 69%, poi 50-54%
+attorno al redeploy, e picchi CPU di circa 42% e poi circa 5%.
+
+Queste sono osservazioni del provider, non SLA. Queue e consegna realtime non
+sono state provate: restano il confine funzionale di M7-007.
+
 ## Esercizio
 
 Spiega con parole tue perche' `/up` non prova Reverb e perche' il browser usa
