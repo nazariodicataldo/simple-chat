@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test"
 
-test("raggiunge la pagina pubblica HTTPS del Compose", async ({
+test("raggiunge la pagina pubblica HTTPS del target configurato", async ({
   page,
 }, testInfo) => {
   const baseUrl =
@@ -12,9 +12,7 @@ test("raggiunge la pagina pubblica HTTPS del Compose", async ({
   } catch (error) {
     const detail = error instanceof Error ? error.message : String(error)
 
-    throw new Error(
-      `Il Compose HTTPS non e' raggiungibile su ${baseUrl}. Verifica domini .test, Nginx attivo e CA mkcert trusted. Dettaglio: ${detail}`
-    )
+    throw new Error(`The configured HTTPS target is not reachable at ${baseUrl}. Detail: ${detail}`)
   }
 
   await expect(page).toHaveTitle("Simple Chat")

@@ -1,7 +1,8 @@
 # Stato corrente
 
 - **Milestone corrente:** Milestone 7 — Deployment (avviata 2026-09-22).
-- **Ultimo task completato:** M7-006 — Verificare e completare il primo deploy
+- **Ultimo task completato:** M7-007 — Verificare il deploy pubblico con
+  Playwright; M7-006 — Verificare e completare il primo deploy
   manuale su Render; M7-005 — Definire il deployment Render con un
   Blueprint; M7-004 — Collegare Upstash come queue Redis
   production; M7-003 — Collegare Neon come PostgreSQL production; M7-002 —
@@ -12,9 +13,9 @@
 - **Compilatore frontend:** locale: Turbopack; job GitHub Actions Realtime
   Compose E2E: Webpack. L'override CI usa ora Webpack; il profilo locale resta
   invariato con Turbopack.
-- **Prossimo task suggerito:** M7-007 — Verificare queue e realtime sul deploy
-  Render completato; non e' stato anticipato durante M7-006.
-- **Ultimo aggiornamento:** 2026-10-05.
+- **Prossimo task suggerito:** M7-008 — Verificare backup e ripristino Neon,
+  dopo la chiusura effettiva di M7-007.
+- **Ultimo aggiornamento:** 2026-10-07.
 
 ## Funzionalita' esistenti
 
@@ -262,7 +263,25 @@
   `Auto Sync: No` e `Auto-Deploy: Off`. La nuova `APP_KEY` production e le URL
   normalizzate sono state applicate insieme; migration, cinque processi,
   HTTPS, login/logout, cold/warm start, metriche e log sanitizzati sono
-  verificati. Queue e realtime restano a M7-007.
+  verificati. Queue e realtime sono stati verificati da M7-007.
+
+- M7-007, completato il 2026-10-06, rende Playwright configurabile tra Compose
+  locale e Render soltanto tramite `PLAYWRIGHT_BASE_URL`. La root Render
+  `https://simple-chat-nazariodicataldo.onrender.com` viene validata con TLS
+  rigoroso; il bypass degli errori HTTPS e' incompatibile con production, che
+  forza zero retry e disabilita trace, video e screenshot. Il global setup
+  verifica `/up` e `/` entro 120 secondi prima della suite. Dal 2026-10-07 il
+  test production riserva 150 secondi complessivi anche all'eventuale cleanup
+  di recupero; Compose resta a 30 secondi e le asserzioni realtime a 15. Il
+  cleanup attende inoltre che la lista termini `Loading messages...` prima di
+  decidere che un marker non esista. Due context hanno
+  usato password distinte generate in memoria, subscription privata, CREATE,
+  UPDATE, DELETE realtime senza refresh, rilettura post-delete e cleanup UI-only
+  sul runtime M7-006 allo SHA
+  `00d91f3ac1cbe6c5a3a443f2425a54e56b75a200`. Compose locale e Render hanno
+  superato 2 test Playwright; i controlli mirati, suite frontend, lint e
+  typecheck sono verdi. Il Live Tail ha sostenuto la diagnosi di Horizon,
+  Reverb e dei processi production senza essere presentato come traccia per-job.
 
 ## Test esistenti
 
@@ -372,6 +391,19 @@ attivita' e risoluzioni sotto `/app`, ma non contiene un evento filtrabile con
   verificato i servizi prima di Playwright, superato 2 test in 8,8 s e stampato
   `Race Reverb/cache non rilevata nei log del servizio.`; il teardown con volumi
   e' riuscito.
+
+- M7-007, 2026-10-06: test mirati di configurazione/readiness/password (15 test),
+  suite frontend (19 file, 105 test), lint e typecheck sono riusciti. Compose
+  locale ha superato smoke e realtime (`2 passed`, 17,4 s) dopo la compilazione
+  iniziale; Render ha superato la readiness globale, smoke e realtime (`2
+  passed`, 19,3 s nell'ultima ripetizione) sul dominio pubblico reale, con TLS rigoroso, due context,
+  password in memoria, CRUD realtime e rilettura dopo soft delete. Il Live Tail
+  ha mostrato i cinque processi production in `RUNNING` e gli eventi dei
+  messaggi completati; nessun errore Redis/queue, OOM, restart o crash e' stato
+  trovato nella finestra filtrata. Il primo run locale freddo ha superato lo
+  smoke ma ha raggiunto il timeout durante la compilazione Turbopack; la
+  ripetizione a stack caldo e' riuscita. Il teardown Compose senza `-v` e'
+  riuscito.
 
 - La suite backend nei tre run verdi completa 213 assertion ma mostra 39
   warning non bloccanti. La riproduzione da checkout senza `.env` li attribuisce

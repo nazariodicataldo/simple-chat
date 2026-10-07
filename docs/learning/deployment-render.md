@@ -407,6 +407,142 @@ attorno al redeploy, e picchi CPU di circa 42% e poi circa 5%.
 Queste sono osservazioni del provider, non SLA. Queue e consegna realtime non
 sono state provate: restano il confine funzionale di M7-007.
 
+## Contratto Playwright production di M7-007
+
+M7-007 usa Playwright come client esterno del deploy, non come processo dentro
+Render. Il runner e Chromium partono dalla workstation, ma HTTPS e WSS
+raggiungono il dominio pubblico e attraversano il vero container, Neon e
+Upstash. Cambiare lo strumento di prova non richiede quindi un nuovo build del
+servizio gia' verificato da M7-006.
+
+```text
+workstation: Playwright + Chromium
+  -> HTTPS/WSS pubblico Render
+     -> Nginx -> Next/Laravel/Reverb
+        -> Neon e Upstash/Horizon
+```
+
+Senza variabili, `pnpm e2e` conserva il Compose locale su
+`https://app.simple-chat.test:8443`. Production viene selezionata soltanto per
+il singolo comando:
+
+```bash
+PLAYWRIGHT_BASE_URL=https://<render-service>.onrender.com corepack pnpm e2e
+```
+
+Il config non contiene il dominio reale. Accetta soltanto la root HTTPS di un
+host `*.onrender.com`, normalizza la slash finale e rifiuta credenziali, porta,
+path, query o fragment. L'evidenza finale del task registrera' invece il target
+pubblico realmente verificato, per collegare il risultato a data e SHA runtime.
+
+`PLAYWRIGHT_IGNORE_HTTPS_ERRORS` appartiene al browser di test, non al server.
+La CI Compose puo' usarlo per la propria CA effimera; combinarlo con un target
+Render deve fallire in inglese prima della suite. Production forza inoltre zero
+retry e disabilita trace, video e screenshot automatici: un retry potrebbe
+creare altri utenti, mentre una trace puo' contenere body, cookie e sessioni.
+
+Prima dei test, un global setup production attende in ordine `/up` e `/` con
+TLS verificato e un limite complessivo di 120 secondi. Questa non e' una pausa
+fissa: se il servizio e' caldo la suite parte subito; se il cold start e' in
+corso, si riprova fino a una risposta valida. Gli attuali 15 secondi delle
+asserzioni realtime non cambiano, perche' misurano la pipeline dopo che
+l'applicazione e' pronta.
+
+La prova registra dalla UI due utenti univoci in due `BrowserContext`. Node
+genera due password distinte e crittograficamente casuali con maiuscole,
+minuscole, numeri e simboli, compatibili con `mixedCase` e `uncompromised` di
+Laravel production. I valori esistono soltanto nella memoria del processo e
+non entrano in output, report o file.
+
+Dopo entrambe le subscription `private-chat`, A esegue CREATE, UPDATE e DELETE;
+B deve osservare una sola bubble per stato, senza refresh. Solo dopo la prova
+DELETE realtime, un caricamento normale conferma che il messaggio non ritorni.
+Laravel usa il soft delete: il cleanup riuscito rende il record invisibile alle
+query normali, ma non elimina fisicamente la riga Neon con `deleted_at`.
+
+Il cleanup cerca sia il testo CREATE sia il testo UPDATE. Se pagina o sessione
+non sono piu' utilizzabili, attende il recupero del servizio, apre un context
+nuovo ed effettua login come A con la password ancora in memoria. Un guasto
+prolungato puo' impedire anche questo recupero: il test resta fallito, registra
+soltanto run ID e marker possibili e si ferma prima di creare altri utenti.
+
+### Cosa dimostrano test e log
+
+Playwright fornisce la prova funzionale principale: A completa le mutazioni e B
+riceve gli aggiornamenti tramite la subscription senza ricaricare. Il codice
+versionato stabilisce che gli eventi usano `ShouldBroadcast`, Redis e Reverb;
+il Live Tail aiuta a escludere errori queue, broadcast, crash e restart nella
+stessa finestra. Queste fonti sono complementari, ma non equivalgono a una
+traccia del singolo job quando il runtime non stampa quell'identificatore.
+
+Il web service Free non offre shell Dashboard, SSH o one-off job: non si puo'
+quindi eseguire `php artisan horizon:status`, `queue:failed` o Tinker nel
+container live. Render raccoglie stdout/stderr e il workspace Hobby conserva i
+log per sette giorni; i request log HTTP con request ID richiedono invece Pro.
+
+Laravel potrebbe aggiungere listener `JobProcessing`, `JobProcessed` e
+`JobFailed`, mentre Reverb potrebbe partire con `--debug`. Anche la dashboard
+Horizon potrebbe essere aperta a un'identita' allowlisted. M7-007 non introduce
+queste opzioni: richiederebbero codice o accessi production aggiuntivi e
+potrebbero esporre payload o sessioni. Il limite viene dichiarato invece di
+creare osservabilita' permanente per una singola prova.
+
+Il target resta lo SHA M7-006 gia' pubblicato. Se Playwright dimostra un difetto
+runtime, M7-007 resta attivo: serve un task correttivo, poi un deploy manuale
+autorizzato e una nuova prova completa. Anche una sospensione o quota esaurita
+del provider lascia il task aperto; non si allargano i timeout o si indebolisce
+TLS per ottenere un risultato verde.
+
+## Evidenze M7-007 del 2026-10-06
+
+Il runner locale ha verificato prima la selezione del target senza contattare
+Render: il default resta `https://app.simple-chat.test:8443`, una root Render
+valida normalizza la sola slash finale, mentre protocollo, host, porta, path,
+query, fragment e credenziali inattesi vengono rifiutati in inglese. Il bypass
+`PLAYWRIGHT_IGNORE_HTTPS_ERRORS=true` viene rifiutato quando e' presente un
+target Render; la CI Compose conserva invece i due retry e il proprio bypass
+TLS esplicito. Production usa zero retry, `line` reporter, TLS rigoroso e
+disabilita' esplicita di trace, video e screenshot.
+
+Il global setup production ha superato i test mirati per l'ordine `/up` poi `/`,
+il limite complessivo di 120 secondi e la diagnostica sanitizzata; le risposte
+non vengono lette o incluse nei messaggi. La suite locale e' stata eseguita con
+Compose avviato e ha superato smoke e realtime a due context (`2 passed`,
+17,4 s) dopo la compilazione iniziale di Next. Un primo run freddo ha colpito
+il limite locale di 30 secondi durante la compilazione Turbopack; la ripetizione
+isolata e il run completo a stack caldo sono riusciti senza modificare i 15 s
+delle asserzioni realtime.
+
+La prova pubblica ha usato soltanto l'ambiente:
+
+```bash
+PLAYWRIGHT_BASE_URL=https://simple-chat-nazariodicataldo.onrender.com corepack pnpm e2e
+```
+
+Sul servizio Render Free `simple-chat-nazariodicataldo` in Francoforte, il
+runner ha superato readiness, smoke e realtime (`2 passed`, 19,3 s nell'ultima
+ripetizione) con
+`https://simple-chat-nazariodicataldo.onrender.com` e senza retry. I due context
+hanno registrato due utenti con password distinte generate in memoria, atteso
+la subscription privata, eseguito CREATE/UPDATE/DELETE senza refresh e
+confermato dopo il DELETE che il messaggio soft-deleted non ricompare. Gli
+account di prova restano possibili residui su Neon perche' il task non esegue
+una cancellazione utenti; non viene dichiarato un conteggio globale degli
+utenti creati.
+
+Il Live Tail nella finestra `15:00-15:02 UTC` ha mostrato migration completata,
+Horizon, Next, Nginx, PHP-FPM e Reverb in `RUNNING`, readiness `/up`, le due
+registrazioni, le mutazioni HTTP e gli eventi `MessageCreated`,
+`MessageUpdated` e `MessageDeleted` completati. La ricerca dei segnali
+`error`, Redis, queue, OOM e restart non ha trovato corrispondenze; l'uso della
+parola `fatal` nel nome del listener Supervisor non e' stato trattato come un
+errore. Questi log sostengono la diagnosi della finestra, ma non sono una
+traccia per-job: il piano Free non espone tale correlazione.
+
+Il target e' stato verificato sul runtime M7-006 allo SHA
+`00d91f3ac1cbe6c5a3a443f2425a54e56b75a200`; durante M7-007 non sono stati
+avviati build, sync o deploy Render.
+
 ## Esercizio
 
 Spiega con parole tue perche' `/up` non prova Reverb e perche' il browser usa
@@ -428,6 +564,12 @@ consecutivi.
 - [Render: riferimento Blueprint YAML](https://render.com/docs/blueprint-spec)
 - [Render: variabili d'ambiente e secret](https://render.com/docs/configure-environment-variables)
 - [Render: limiti dei servizi Free](https://render.com/docs/free)
+- [Render: log nel Dashboard](https://render.com/docs/logging)
+- [Render: accesso Shell e SSH](https://render.com/docs/ssh)
+- [Playwright: configurazione dei test](https://playwright.dev/docs/test-configuration)
+- [Playwright: global setup](https://playwright.dev/docs/test-global-setup-teardown)
+- [Laravel: eventi dei job in queue](https://laravel.com/docs/queues#job-events)
+- [Laravel Reverb: debug](https://laravel.com/docs/reverb#debugging)
 - [Neon: regioni](https://neon.com/docs/manage/regions)
 - [Neon: connection pooling](https://neon.com/docs/connect/connection-pooling)
 - [Neon: gestione dei compute e scale-to-zero](https://neon.com/docs/manage/endpoints)

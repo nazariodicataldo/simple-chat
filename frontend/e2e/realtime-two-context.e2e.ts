@@ -1,4 +1,7 @@
-import { expect, test, type Page } from "@playwright/test"
+import { expect, test, type Browser, type Page } from "@playwright/test"
+
+import { waitForProductionReadiness } from "./production-global-setup"
+import { createStrongPasswords } from "./test-data"
 
 type TestUser = {
   firstName: string
@@ -79,7 +82,24 @@ async function registerUser(page: Page, user: TestUser) {
     .toBeGreaterThan(0)
 }
 
+async function loginUser(page: Page, user: TestUser) {
+  await page.goto("/")
+  await expect(page.getByRole("heading", { name: "Welcome back" })).toBeVisible()
+
+  // Il form alternativo resta montato ma hidden: lo scope evita collisioni sui label duplicati.
+  const loginForm = page.locator("form:not([hidden])")
+  await loginForm.getByLabel("Email").fill(user.email)
+  await loginForm.getByLabel("Password", { exact: true }).fill(user.password)
+  await loginForm.getByRole("button", { name: "Sign in" }).click()
+  await expect(page.getByRole("heading", { name: "Group chat" })).toBeVisible()
+}
+
 async function deleteMessageFromUi(page: Page, text: string) {
+  // Il marker puo' arrivare dopo il login: valutarlo solo quando la query non e' piu' in caricamento.
+  await expect(
+    page.getByText("Loading messages...", { exact: true })
+  ).toHaveCount(0, { timeout: 15_000 })
+
   const row = messageRow(page, text)
   if ((await row.count()) === 0) return
 
@@ -89,28 +109,65 @@ async function deleteMessageFromUi(page: Page, text: string) {
   await expect(messageRow(page, text)).toHaveCount(0)
 }
 
+async function deleteMessagesFromUi(page: Page, texts: string[]) {
+  let firstError: unknown
+
+  for (const text of texts) {
+    try {
+      await deleteMessageFromUi(page, text)
+    } catch (error) {
+      firstError ??= error
+    }
+  }
+
+  if (firstError) throw firstError
+}
+
+function isProductionTarget(baseURL: string | undefined) {
+  return typeof baseURL === "string" && baseURL.endsWith(".onrender.com")
+}
+
+async function recoverCleanup(
+  browser: Browser,
+  user: TestUser,
+  texts: string[],
+  baseURL: string
+) {
+  // La readiness globale evita di creare un nuovo context mentre Render sta ancora recuperando.
+  await waitForProductionReadiness(baseURL)
+  const context = await browser.newContext({ baseURL })
+
+  try {
+    const page = await context.newPage()
+    await loginUser(page, user)
+    await deleteMessagesFromUi(page, texts)
+  } finally {
+    await context.close()
+  }
+}
+
 test("propaga create, update e delete tra due context autenticati", async ({
   browser,
 }, testInfo) => {
   const runId = `${Date.now()}-${testInfo.workerIndex}`
-  const password = "playwright-e2e-password"
+  const [passwordA, passwordB] = createStrongPasswords(2)
   const userA: TestUser = {
     firstName: "E2E",
     lastName: "Alice",
     username: `e2e-a-${runId}`,
     email: `e2e-a-${runId}@example.test`,
-    password,
+    password: passwordA,
   }
   const userB: TestUser = {
     firstName: "E2E",
     lastName: "Bob",
     username: `e2e-b-${runId}`,
     email: `e2e-b-${runId}@example.test`,
-    password,
+    password: passwordB,
   }
   const createdText = `E2E create ${runId}`
   const updatedText = `E2E update ${runId}`
-  let cleanupText = createdText
+  const cleanupTexts = [updatedText, createdText]
   const contextA = await browser.newContext()
   const contextB = await browser.newContext()
   const pageA = await contextA.newPage()
@@ -143,7 +200,6 @@ test("propaga create, update e delete tra due context autenticati", async ({
       .getByRole("dialog")
       .getByRole("button", { name: "Save" })
       .click()
-    cleanupText = updatedText
     await expect(messageRow(pageA, createdText)).toHaveCount(0)
     await expect(messageRow(pageA, updatedText)).toHaveCount(1)
     await expect(messageRow(pageB, createdText)).toHaveCount(0, {
@@ -158,22 +214,72 @@ test("propaga create, update e delete tra due context autenticati", async ({
     await expect(messageRow(pageB, updatedText)).toHaveCount(0, {
       timeout: 15_000,
     })
-    cleanupText = ""
+    // La rilettura normale completa la prova del soft delete dopo l'evento realtime.
+    await pageB.reload()
+    await expect(messageRow(pageB, updatedText)).toHaveCount(0)
   } finally {
-    // Il cleanup resta selettivo e passa dalla UI anche quando lo scenario fallisce a meta'.
-    if (cleanupText) {
+    // Il cleanup prova entrambi i marker UI: il testo precedente scompare dopo UPDATE.
+    let cleanupError: unknown
+    try {
+      await deleteMessagesFromUi(pageA, cleanupTexts)
+    } catch (error) {
+      cleanupError = error
+    }
+
+    if (cleanupError && isProductionTarget(testInfo.project.use.baseURL)) {
       try {
-        await deleteMessageFromUi(pageA, cleanupText)
+        await recoverCleanup(browser, userA, cleanupTexts, testInfo.project.use.baseURL!)
+        cleanupError = undefined
       } catch (error) {
-        const detail = error instanceof Error ? error.message : String(error)
-        await testInfo.attach("cleanup-error", {
-          body: detail,
-          contentType: "text/plain",
-        })
-        if (testInfo.errors.length === 0) throw error
-        console.error(`Cleanup E2E non riuscito: ${detail}`)
+        cleanupError = error
       }
+    }
+
+    if (cleanupError) {
+      const marker = `run-id=${runId}; create-marker=${createdText}; update-marker=${updatedText}`
+      await testInfo.attach("cleanup-error", {
+        body: marker,
+        contentType: "text/plain",
+      })
+      if (testInfo.errors.length === 0) throw new Error(`Cleanup failed: ${marker}`)
+      console.error(`Cleanup failed: ${marker}`)
     }
     await Promise.all([contextA.close(), contextB.close()])
   }
+})
+
+test("il cleanup attende il caricamento dei messaggi prima di cercare il marker", async ({
+  page,
+}) => {
+  const marker = "E2E cleanup loading marker"
+  await page.setContent('<div role="status">Loading messages...</div>')
+
+  // La lista compare dopo l'autenticazione: il cleanup deve aspettarla prima di concludere che sia vuota.
+  await page.evaluate((messageText) => {
+    window.setTimeout(() => {
+      document.body.innerHTML = `
+        <article data-slot="message" aria-label="Message from E2E Alice">
+          <p>${messageText}</p>
+          <button aria-label="Message actions">Actions</button>
+        </article>
+        <button aria-label="Delete message">Delete message</button>
+        <div role="dialog">
+          <button>Delete</button>
+        </div>
+      `
+
+      document
+        .querySelector('[role="dialog"] button')
+        ?.addEventListener("click", () => {
+          document
+            .querySelector('[data-slot="message"]')
+            ?.remove()
+          document.body.dataset.cleanup = "deleted"
+        })
+    }, 1_000)
+  }, marker)
+
+  await deleteMessageFromUi(page, marker)
+
+  await expect(page.locator("body")).toHaveAttribute("data-cleanup", "deleted")
 })
