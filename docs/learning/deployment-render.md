@@ -543,6 +543,123 @@ Il target e' stato verificato sul runtime M7-006 allo SHA
 `00d91f3ac1cbe6c5a3a443f2425a54e56b75a200`; durante M7-007 non sono stati
 avviati build, sync o deploy Render.
 
+## Contratto backup e restore manuale di M7-008
+
+La persistenza Neon separa i dati dal ciclo di vita del container Render, ma
+non dimostra che esista una copia portabile e ripristinabile. M7-008 produce
+quindi un dump logico manuale dell'intero database applicativo e lo ripristina
+in un PostgreSQL Docker locale isolato. Non introduce scheduling, retention,
+object storage, PITR o un sistema generale di disaster recovery.
+
+La prova e' interattiva: l'utente esegue un solo comando alla volta, dopo averne
+letto scopo e risultato atteso, e restituisce soltanto output sanitizzato. La
+sessione documentale non esegue Docker, non contatta Neon e non crea il dump.
+Durante l'implementazione una failure interrompe la sequenza: non vengono
+lanciati automaticamente passi successivi o cleanup distruttivi.
+
+### Immagine e connessione alla fonte
+
+Il PostgreSQL gia' installato sull'host non viene usato. Un client
+containerizzato rileva prima `server_version`; dump, strumenti di restore e
+database temporaneo usano poi l'immagine ufficiale `postgres:<major-neon>`. Il
+tag fissa la major ma riceve le patch della stessa serie: per questo vengono
+registrati versione Neon, versioni reali di `pg_dump`/`pg_restore` e ID locale
+dell'immagine. Una differenza di minor release e' accettabile; un client con
+major precedente al server blocca il dump.
+
+`pg_dump` raggiunge l'endpoint direct di Neon, non il pooler usato normalmente
+dall'applicazione. Host, porta, database e username sono argomenti separati;
+la password viene inserita soltanto nel prompt nascosto `-W`. La URL completa
+e la password non entrano in history, elenco processi, file temporanei, chat o
+diff. La connessione usa `sslmode=verify-full` e `sslrootcert=system`: errori di
+certificato o hostname fermano la prova senza fallback a `require`.
+
+L'immagine ufficiale `postgres:<major-neon>` puo' non contenere il bundle CA
+del sistema: nel controllo M7-008 l'immagine Debian `postgres:17` non aveva
+`/etc/ssl/certs/ca-certificates.crt`, e la connessione rigorosa ha quindi
+fallito prima di interrogare Neon. Il client resta comunque basato sulla stessa
+immagine ufficiale e prepara `ca-certificates` soltanto nel container
+temporaneo, senza installare PostgreSQL sull'host o modificare il repository.
+La preparazione deve essere ripetuta nello stesso container che esegue
+`pg_dump` e `pg_restore`, registrando anche la versione reale del pacchetto.
+Un handshake OpenSSL con `Verification: OK` prova la catena CA, ma la prova di
+accettazione resta una connessione `psql` con `sslmode=verify-full`, che verifica
+anche l'hostname.
+
+### File locale e finestra coerente
+
+La directory Download effettiva viene rilevata sul sistema e contiene una
+sottocartella dedicata con permessi `700`. Il dump timestampato e il relativo
+checksum SHA-256 hanno permessi `600`; restano fuori dal repository e vengono
+conservati dopo il test. Il formato custom puo' comprimere il contenuto ma non
+lo cifra. I permessi proteggono dagli altri utenti ordinari, non da `root` o da
+chi controlla Docker.
+
+L'export comprende l'intero database e usa `--format=custom --no-owner
+--no-acl`. Prima del restore devono riuscire il comando, il controllo di
+dimensione non nulla e la lettura dell'indice con `pg_restore --list`; il
+checksum permette di verificare successivamente che il file non sia cambiato.
+Quando la shell host cattura l'archivio con una redirezione, `pg_dump` deve
+ricevere l'output standard senza `--file=-`: quel valore puo' essere trattato
+come il nome letterale di un file chiamato `-` e fallire con un utente non-root.
+Lo stesso vale per la verifica o il restore via stdin: `pg_restore` va avviato
+senza un archivio posizionale e riceve il dump dalla redirezione o da
+`docker exec -i`; passare `-` puo' invece farlo cercare come file letterale.
+
+Render resta online. In una finestra senza uso volontario della chat vengono
+letti subito prima e subito dopo il dump i soli aggregati sanitizzati. Se i
+valori cambiano, il dump puo' essere consistente al proprio interno ma quella
+finestra non dimostra piu' la corrispondenza con le query esterne: la procedura
+si ferma e non forza un risultato verde.
+
+### Restore isolato
+
+Il restore usa nomi fissi e riconoscibili:
+
+```text
+container: simple-chat-m7-008-restore
+volume:    simple-chat-m7-008-restore-data
+```
+
+Entrambi devono essere assenti prima dell'avvio. Una collisione segnala una
+possibile prova precedente incompleta e ferma la procedura senza cancellarla.
+Il container non usa Compose, non pubblica porte e parte con `--network none`;
+il volume e' separato dai dati PostgreSQL normali del progetto.
+
+Poiche' non esiste alcun ingresso di rete, il PostgreSQL temporaneo puo' usare
+`trust` senza introdurre una password fittizia. `docker exec` avvia `psql` e
+`pg_restore` come utente `postgres` dentro il container; gli strumenti parlano
+al server tramite socket locale. Questa eccezione sarebbe insicura su un
+container con rete o porta `5432` pubblicata e non cambia l'autenticazione Neon.
+
+Il dump resta `600` e appartiene all'utente host, quindi l'utente Linux
+`postgres` del container non potrebbe leggerlo attraverso un bind mount. Non si
+allargano i permessi e non si crea una seconda copia: la shell host apre il file
+e lo invia automaticamente allo standard input di `pg_restore` tramite
+`docker exec -i`. Il processo interno continua a essere `postgres` e raggiunge
+il database tramite socket locale. Non si usa il restore parallelo, che
+richiederebbe invece un archivio direttamente accessibile come file o directory.
+
+Il database di destinazione e' vuoto. `pg_restore` usa `--exit-on-error`,
+`--single-transaction`, `--no-owner` e `--no-acl`: al primo errore l'intera
+transazione viene annullata, invece di lasciare un restore parziale. I warning
+sono esaminati singolarmente e non vengono nascosti con filtri generici.
+
+### Prova e cleanup
+
+Fonte e restore devono avere lo stesso elenco di tabelle nello schema `public`,
+lo stesso elenco di migration e gli stessi conteggi di utenti, messaggi totali,
+messaggi visibili e messaggi soft-deleted. Tabelle operative come sessioni,
+cache e job fanno parte del dump, ma i loro conteggi non sono il gate: possono
+cambiare per attivita' tecnica. Non vengono stampati email, username, hash
+password o testi dei messaggi.
+
+Dopo il successo si validano nuovamente i nomi e si rimuovono soltanto il
+container e il volume M7-008; dump e checksum restano in Download. In caso di
+errore, il restore viene conservato temporaneamente per la diagnosi e il task
+rimane attivo. Il cleanup arriva poi con comandi manuali separati: non si usa
+una cancellazione ampia e non si toccano Neon o i volumi abituali del progetto.
+
 ## Esercizio
 
 Spiega con parole tue perche' `/up` non prova Reverb e perche' il browser usa
@@ -568,6 +685,8 @@ consecutivi.
 - [Render: accesso Shell e SSH](https://render.com/docs/ssh)
 - [Playwright: configurazione dei test](https://playwright.dev/docs/test-configuration)
 - [Playwright: global setup](https://playwright.dev/docs/test-global-setup-teardown)
+- [PostgreSQL: pg_dump](https://www.postgresql.org/docs/current/app-pgdump.html)
+- [PostgreSQL: pg_restore](https://www.postgresql.org/docs/current/app-pgrestore.html)
 - [Laravel: eventi dei job in queue](https://laravel.com/docs/queues#job-events)
 - [Laravel Reverb: debug](https://laravel.com/docs/reverb#debugging)
 - [Neon: regioni](https://neon.com/docs/manage/regions)

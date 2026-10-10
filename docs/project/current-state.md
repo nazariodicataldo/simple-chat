@@ -1,7 +1,8 @@
 # Stato corrente
 
 - **Milestone corrente:** Milestone 7 — Deployment (avviata 2026-09-22).
-- **Ultimo task completato:** M7-007 — Verificare il deploy pubblico con
+- **Ultimo task completato:** M7-008 — Verificare backup e ripristino Neon;
+  M7-007 — Verificare il deploy pubblico con
   Playwright; M7-006 — Verificare e completare il primo deploy
   manuale su Render; M7-005 — Definire il deployment Render con un
   Blueprint; M7-004 — Collegare Upstash come queue Redis
@@ -13,9 +14,9 @@
 - **Compilatore frontend:** locale: Turbopack; job GitHub Actions Realtime
   Compose E2E: Webpack. L'override CI usa ora Webpack; il profilo locale resta
   invariato con Turbopack.
-- **Prossimo task suggerito:** M7-008 — Verificare backup e ripristino Neon,
-  dopo la chiusura effettiva di M7-007.
-- **Ultimo aggiornamento:** 2026-10-07.
+- **Prossimo task suggerito:** M7-009 — Verificare runbook e chiudere la
+  milestone; resta proposto e non e' stato attivato o implementato.
+- **Ultimo aggiornamento:** 2026-10-10.
 
 ## Funzionalita' esistenti
 
@@ -282,6 +283,15 @@
   superato 2 test Playwright; i controlli mirati, suite frontend, lint e
   typecheck sono verdi. Il Live Tail ha sostenuto la diagnosi di Horizon,
   Reverb e dei processi production senza essere presentato come traccia per-job.
+
+- M7-008, completato il 2026-10-10, ha prodotto un dump custom Neon PostgreSQL
+  17.11 con `pg_dump --no-owner --no-acl`, formato non versionato e checksum
+  SHA-256, usando il direct endpoint e TLS `verify-full`. Il dump e' stato
+  ripristinato senza rete o porte in un PostgreSQL `postgres:17` temporaneo,
+  con restore atomico e confronto di tabelle, migration, utenti e messaggi
+  visibili/soft-deleted. Container e volume dedicati sono stati rimossi; il
+  file resta nella Download locale dell'utente. Il controllo e' manuale e non
+  dimostra backup schedulato, retention, PITR o disaster recovery generale.
 
 ## Test esistenti
 
