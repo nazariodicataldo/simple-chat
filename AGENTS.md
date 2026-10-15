@@ -1,4 +1,4 @@
-# Group Chat — istruzioni operative
+# Simple Chat — istruzioni operative
 
 Progetto personale di apprendimento: una singola chat di gruppo per utenti autenticati, con backend Laravel e frontend Next.js. L'obiettivo e' capire ogni componente, non costruire un sistema enterprise.
 

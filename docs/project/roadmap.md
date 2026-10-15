@@ -31,6 +31,6 @@ verificati con due browser senza refresh.
 
 Playwright con due browser context, test backend/frontend, lint, typecheck, build e GitHub Actions essenziale. **DoD:** il flusso real-time reale e' verificato senza mock di Redis, worker, Reverb o Echo.
 
-## Milestone 7 — Deployment
+## Milestone 7 — Deployment (completata 2026-10-12)
 
-Production, reverse proxy, HTTPS, processi persistenti, migration, backup, log e smoke test; deployment inizialmente manuale. **DoD:** deployment manuale documentato e verificabile.
+Production, reverse proxy, HTTPS, processi persistenti, migration, backup, log e smoke test; deployment inizialmente manuale. **DoD:** deployment manuale documentato e verificato come demo pubblica Free; non è produzione durevole con SLA.

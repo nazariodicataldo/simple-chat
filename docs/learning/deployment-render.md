@@ -4,6 +4,11 @@ Questa nota accompagna M7-001. Descrive il contratto dell'immagine production
 prima del deploy reale: non contiene secret, URL del servizio Render o istruzioni
 per creare risorse cloud.
 
+Per le azioni operative manuali di prima configurazione, deploy, rollback e
+controllo backup usa il [runbook Render](../runbooks/deployment-render.md). Questa
+guida conserva invece teoria, motivazioni, compromessi ed evidenze delle
+milestone.
+
 ## Problema e ruolo di M7-001
 
 In Compose locale i cinque processi della chat vivono in container separati:
@@ -659,6 +664,84 @@ container e il volume M7-008; dump e checksum restano in Download. In caso di
 errore, il restore viene conservato temporaneamente per la diagnosi e il task
 rimane attivo. Il cleanup arriva poi con comandi manuali separati: non si usa
 una cancellazione ampia e non si toccano Neon o i volumi abituali del progetto.
+
+## Contratto teorico di chiusura M7-009
+
+M7-009 separa definitivamente tre tipi di documentazione che non devono
+duplicarsi:
+
+- il nuovo `README.md` presentera' Simple Chat, il quickstart Docker Compose,
+  le mappe architetturali e i collegamenti essenziali;
+- questa guida learning restera' dedicata a concetti, motivazioni e
+  compromessi;
+- il nuovo `docs/runbooks/deployment-render.md` conterra' soltanto la procedura
+  operativa manuale, con azioni, risultati attesi e condizioni di arresto.
+
+Il runbook distinguera' la prima configurazione dei provider dal normale deploy
+di un nuovo commit. Le istruzioni useranno nomi dei campi e placeholder, non
+secret, screenshot o riferimenti fragili alla posizione dei pulsanti. Render,
+Neon e Upstash resteranno sui piani gratuiti senza carta; un limite corrente
+incompatibile con i criteri fermera' il task invece di introdurre pagamenti,
+keep-alive o una nuova architettura.
+
+### SHA runtime e SHA di verifica
+
+Lo SHA mostrato dal deploy Render identifica il codice costruito ed eseguito
+dal servizio. Lo SHA di verifica identifica invece il checkout dal quale
+partono CI, Playwright e audit documentale. Possono essere diversi quando i
+commit successivi modificano soltanto documentazione o strumenti di prova.
+
+Questa differenza non richiede da sola un nuovo deploy. L'audit deve registrare
+entrambi i ruoli e confrontare i file cambiati: Render va ridistribuito soltanto
+quando il candidato cambia l'artefatto o la configurazione runtime. Run, SHA e
+risultati effettivi appartengono al task e al runbook, non a questa spiegazione
+teorica.
+
+### Deploy, rollback e database
+
+Il deploy production esegue `php artisan migrate --force` prima dei processi
+applicativi. Ridistribuire un vecchio commit da Render ripristina il codice, ma
+non riporta Neon allo schema o ai dati precedenti. Prima di un deploy il runbook
+richiedera' quindi di confrontare gli SHA e cercare nuove migration.
+
+Senza migration il rollback puo' ridistribuire il precedente SHA noto. Una
+migration additiva puo' essere compatibile con entrambe le versioni, ma va
+valutata per il rilascio concreto. Rename, drop, cambi di tipo o trasformazioni
+distruttive richiedono invece un piano dedicato e fermano il percorso generico.
+Un comando indiscriminato `migrate:rollback --force` non e' il rollback
+predefinito.
+
+Anche il dump M7-008 non e' un rollback del deploy: e' una fotografia completa
+del database al 10 ottobre 2026. Ripristinarla eliminerebbe dal punto di
+recupero tutti i dati creati dopo quella data.
+
+### Confini della verifica finale
+
+L'utente eseguira' un passo alla volta tutte le azioni che raggiungono
+production o i Dashboard, restituendo soltanto risultati sanitizzati. I
+controlli locali e documentali senza credenziali potranno essere eseguiti
+dall'agente.
+
+La prova finale usera' fonti complementari:
+
+- `/up` per Nginx -> Laravel e `/` per Nginx -> Next;
+- login e logout manuali con un account di prova esistente;
+- Playwright per due registrazioni, due sessioni isolate, subscription privata
+  e CREATE/UPDATE/DELETE realtime;
+- Live Tail e metriche per la sola finestra osservata, senza estendere
+  l'assenza di errori a periodi non letti;
+- evidenza M7-008 per una procedura di backup/restore gia' verificata, senza
+  chiamarla backup aggiornato dei dati correnti.
+
+Non verra' forzato un cold start: sara' registrato soltanto se avviene
+naturalmente. Il run Playwright production restera' singolo e senza retry; i
+messaggi prova verranno rimossi dalla UI, mentre due utenti sintetici potranno
+restare nel database come limite dichiarato.
+
+La milestone verra' chiusa soltanto dopo controlli effettivi verdi. Il
+risultato resta una demo pubblica Free, con singolo container, quote, spin-down,
+backup manuale e nessuno SLA. Dopo M7-009 non verra' inventata una nuova
+milestone: il lavoro successivo restera' da definire.
 
 ## Esercizio
 

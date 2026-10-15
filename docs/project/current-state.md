@@ -1,7 +1,8 @@
 # Stato corrente
 
-- **Milestone corrente:** Milestone 7 — Deployment (avviata 2026-09-22).
-- **Ultimo task completato:** M7-008 — Verificare backup e ripristino Neon;
+- **Milestone corrente:** Milestone 7 — Deployment (completata 2026-10-12).
+- **Ultimo task completato:** M7-009 — Verificare il runbook e chiudere la
+  Milestone 7; M7-008 — Verificare backup e ripristino Neon;
   M7-007 — Verificare il deploy pubblico con
   Playwright; M7-006 — Verificare e completare il primo deploy
   manuale su Render; M7-005 — Definire il deployment Render con un
@@ -14,9 +15,9 @@
 - **Compilatore frontend:** locale: Turbopack; job GitHub Actions Realtime
   Compose E2E: Webpack. L'override CI usa ora Webpack; il profilo locale resta
   invariato con Turbopack.
-- **Prossimo task suggerito:** M7-009 — Verificare runbook e chiudere la
-  milestone; resta proposto e non e' stato attivato o implementato.
-- **Ultimo aggiornamento:** 2026-10-10.
+- **Prossimo task suggerito:** da definire; non viene inventata una nuova
+  milestone.
+- **Ultimo aggiornamento:** 2026-10-12.
 
 ## Funzionalita' esistenti
 
@@ -292,6 +293,13 @@
   visibili/soft-deleted. Container e volume dedicati sono stati rimossi; il
   file resta nella Download locale dell'utente. Il controllo e' manuale e non
   dimostra backup schedulato, retention, PITR o disaster recovery generale.
+
+- M7-009, completato il 2026-10-12, ha aggiunto il README root, l'indice del
+  runbook e il runbook operativo Render, mantenendo la guida learning sul piano
+  teorico. La verifica ha registrato CI completa, Render `Live`, smoke `/up` e
+  `/`, login/logout, Playwright production `3 passed`, log sanitizzati,
+  metriche e controllo non distruttivo del dump M7-008. La milestone è una demo
+  pubblica Free, non produzione durevole con SLA.
 
 ## Test esistenti
 
